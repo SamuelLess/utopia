@@ -1,0 +1,47 @@
+c description: Tseitin formula on Random 4-regular graph of 5 vertices, with odd charge
+c generator: CNFgen (0.9.0)
+c copyright: (C) 2012-2020 Massimo Lauria <massimo.lauria@uniroma1.it>
+c url: https://massimolauria.net/cnfgen
+c command line: cnfgen tseitin 5
+c
+p cnf 10 40
+1 2 3 4 0
+1 2 -3 -4 0
+1 -2 3 -4 0
+1 -2 -3 4 0
+-1 2 3 -4 0
+-1 2 -3 4 0
+-1 -2 3 4 0
+-1 -2 -3 -4 0
+1 5 6 7 0
+1 5 -6 -7 0
+1 -5 6 -7 0
+1 -5 -6 7 0
+-1 5 6 -7 0
+-1 5 -6 7 0
+-1 -5 6 7 0
+-1 -5 -6 -7 0
+2 5 8 9 0
+2 5 -8 -9 0
+2 -5 8 -9 0
+2 -5 -8 9 0
+-2 5 8 -9 0
+-2 5 -8 9 0
+-2 -5 8 9 0
+-2 -5 -8 -9 0
+3 6 8 -10 0
+3 6 -8 10 0
+3 -6 8 10 0
+3 -6 -8 -10 0
+-3 6 8 10 0
+-3 6 -8 -10 0
+-3 -6 8 -10 0
+-3 -6 -8 10 0
+4 7 9 -10 0
+4 7 -9 10 0
+4 -7 9 10 0
+4 -7 -9 -10 0
+-4 7 9 10 0
+-4 7 -9 -10 0
+-4 -7 9 -10 0
+-4 -7 -9 10 0

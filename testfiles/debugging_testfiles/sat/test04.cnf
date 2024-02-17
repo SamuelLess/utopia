@@ -1,0 +1,9 @@
+c
+c test file derived from aim-200-6_0-yes1-1.cnf
+c
+c Should be satisfiable, but crashed the solver.
+c Tests for duplicate literals in a clause.
+c
+p cnf 2 2
+-1 0
+2 2 0
