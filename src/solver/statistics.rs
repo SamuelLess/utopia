@@ -54,6 +54,10 @@ impl StateStatistics {
         let mut table = Table::new();
         table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
         table.set_titles(row![b -> "Solver Statistics", "Value"]);
+        if self.num_clauses == 0 {
+            table.add_row(row!["No Data - Only Preprocessing"]);
+            return table;
+        }
         table.add_row(row![
             "Size",
             format!("{} clauses, {} vars", self.num_clauses, self.num_vars)

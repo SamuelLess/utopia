@@ -4,7 +4,7 @@ mod heuristic;
 pub mod state;
 pub mod statistics;
 mod unit_propagation;
-use crate::cnf::{Clause, VarId};
+use crate::cnf::{Clause, Solution, VarId};
 use crate::preprocessor::Preprocessor;
 use crate::solver::branching::Brancher;
 use crate::solver::config::Config;
@@ -15,26 +15,30 @@ use std::collections::HashMap;
 
 pub struct Solver {
     config: Config,
+    cnf: Vec<Clause>,
     state: State,
     preprocessor: Preprocessor,
 }
 
 impl Solver {
     pub fn new(clauses: Vec<Clause>) -> Self {
-        let state = State::init(clauses);
+        let cnf = clauses;
         let config = Config::default();
         let preprocessor = Preprocessor::default();
 
         Solver {
             config,
-            state,
+            cnf,
+            state: State::init(vec![]),
             preprocessor,
         }
     }
 
-    pub fn solve(&mut self) -> Option<HashMap<VarId, bool>> {
+    pub fn solve(&mut self) -> Solution {
+        if let Some(solution) = self.preprocess() {
+            return solution;
+        }
         self.state.stats.start_timing();
-        self.preprocess();
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut unit_propagator = UnitPropagator::new();
         let mut brancher = Brancher::default();
@@ -60,9 +64,19 @@ impl Solver {
         }
     }
 
-    fn preprocess(&mut self) {
-        let new_clauses = self.preprocessor.process(self.state.clauses.clone());
-        self.state = State::init(new_clauses);
+    /// Preprocesses the clauses and updates the state
+    /// Returns SAT, UNSAT or Nothing
+    fn preprocess(&mut self) -> Option<Solution> {
+        let new_clauses = self.preprocessor.process(self.cnf.clone());
+        if new_clauses.is_none() {
+            return Some(None);
+        }
+        self.cnf = new_clauses.unwrap();
+        if self.cnf.is_empty() {
+            return Some(Some(self.preprocessor.map_solution(HashMap::new())));
+        }
+        self.state = State::init(self.cnf.clone());
+        None
     }
 
     fn get_solution(&self) -> HashMap<VarId, bool> {

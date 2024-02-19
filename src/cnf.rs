@@ -1,6 +1,7 @@
 use crate::solver::branching::Assignment;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Neg;
 use std::str::FromStr;
 
 pub fn check_assignment(clauses: Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
@@ -63,6 +64,14 @@ impl From<i32> for Literal {
 impl From<Assignment> for Literal {
     fn from(assignment: Assignment) -> Self {
         Literal::from_value(assignment.var, assignment.value)
+    }
+}
+
+impl Neg for Literal {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Literal::new(-self.value)
     }
 }
 
@@ -133,3 +142,6 @@ impl Display for Clause {
         write!(f, "{:?}", self.literals)
     }
 }
+
+pub type SolutionAssignment = HashMap<VarId, bool>;
+pub type Solution = Option<SolutionAssignment>;

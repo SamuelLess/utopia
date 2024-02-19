@@ -13,11 +13,17 @@ pub fn clauses_from_dimacs_file(path: &str) -> Result<Vec<Clause>, String> {
 }
 
 pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
-    let file_content: Vec<String> = input
+    let mut file_content: Vec<String> = input
         .lines()
         .map(String::from)
         .filter(|line| !line.starts_with('c'))
+        .filter(|line| !line.starts_with('%'))
+        .filter(|line| !line.is_empty())
         .collect();
+
+    if file_content.last() == Some(&"0".to_string()) {
+        file_content.pop();
+    }
 
     // parse header
     let header = file_content
