@@ -1,0 +1,29 @@
+[package]
+name = "utopia"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[profile.release]
+debug = true
+
+
+[lib]
+crate-type = ["cdylib", "lib"]
+bench = false
+
+
+[[bin]]
+name = "utopia"
+path = "src/bin/cli.rs"
+bench = false
+
+
+[dependencies]
+clap = { version = "4.4.10", features = ["derive"] }
+itertools = "0.12.0"
+walkdir = "2.4.0"
+rand = "0.8.5"
+prettytable = "^0.10.0"
