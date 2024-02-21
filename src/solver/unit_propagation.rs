@@ -9,9 +9,13 @@ impl UnitPropagator {
     }
 
     pub fn propagate(&mut self, state: &mut State, brancher: &mut Brancher) {
-        while let Some(literal) = state.unit_literals.pop_front() {
-            let assignment = Assignment::forced(literal.id(), literal.positive());
+        while let Some(lit) = state.unit_literals.pop_front() {
+            let assignment = Assignment::forced(lit.id(), lit.positive());
             brancher.branch(state, assignment);
+            if state.in_conflict {
+                state.unit_literals.clear();
+                return;
+            }
         }
     }
 }

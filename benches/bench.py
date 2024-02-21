@@ -1,7 +1,6 @@
 import datetime
 import math
 import os
-import random
 import subprocess
 import sys
 from time import time
@@ -47,14 +46,22 @@ SOLVERS = {
 }
 
 
-def find_files(path="../testfiles/"):
+def find_files(path="../testfiles/", filters=[]):
     """find all cnf files in the lecture_testfiles directory"""
     cnf_files = []
     for root, dirs, files in os.walk(path):
         for file in files:
-            if file.endswith(".cnf"):
-                cnf_files.append(os.path.join(root, file))
-        random.shuffle(cnf_files)
+            if not file.endswith(".cnf"):
+                continue
+            full_path = os.path.join(root, file)
+            skip = False
+            for f in filters:
+                if f in full_path:
+                    skip = True
+            if skip:
+                continue
+            cnf_files.append(full_path)
+        #random.shuffle(cnf_files)
     return cnf_files
 
 
@@ -124,8 +131,8 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     df = df.sort_values(by=['solver', key])
     #df = df.sort_values(by=['solver', 'file'])
     df[f'cumulative_{key}'] = df.groupby('solver')[key].cumsum()
-    df['rank'] = df.groupby('solver')[f'cumulative_{key}'].rank(method='dense')
-    #df['rank'] = df.groupby('solver')[f'{key}'].rank(method='dense')
+    #df['rank'] = df.groupby('solver')[f'cumulative_{key}'].rank(method='dense')
+    df['rank'] = df.groupby('solver')[f'{key}'].rank(method='dense')
 
     # only take solvers that are in the solvers list
     df = df[df['solver'].isin(solvers)]
@@ -135,13 +142,13 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     df['solver'] = df['solver'].str.replace('arcane-', '')
 
     # plot the results
-    plot = (ggplot(df, aes(x='rank', y=f'cumulative_{key}', color='solver', shape='solver')) +
+    plot = (ggplot(df, aes(x='rank', y=f'{key}', color='solver', shape='solver')) +
             geom_point(size=0.75) +
             geom_line() +
             #lims(x=(0,171)) +
             #scale_y_log10(limits=(0.1, 500)) +
             scale_y_log10() +
-            labs(x='Solved instances', y='Cumulative CPU time (s)', color="Solver",  shape="Solver",  title='Arcane cumulative runtime') +
+            labs(x='Solved instances', y='CPU time (s)', color="Solver",  shape="Solver",  title='Arcane cumulative runtime') +
             theme_bw() +
             theme(legend_position='bottom')
             )
@@ -164,7 +171,7 @@ def create_plot_occasionally(data, solvers):
 
 
 def main():
-    solvers = ['arcane-decay']
+    solvers = ['arcane-decay', 'utopia']
 
     # override solvers with command line arguments
     if len(sys.argv) > 1:
@@ -175,7 +182,8 @@ def main():
             print(f"Unknown solver: {solver}, available solvers: {SOLVERS.keys()}")
             return
 
-    cnf_files = find_files()
+    #cnf_files = find_files()
+    cnf_files = find_files(filters=['satlib'])
     data = read_or_create_checkpoint()
     for solver in tqdm.tqdm(solvers):
         for cnf_file in tqdm.tqdm(cnf_files, desc=f'Benchmarking {solver} '):

@@ -1,13 +1,16 @@
 pub mod branching;
-mod config;
-mod heuristic;
+pub mod config;
+pub mod heuristic;
+mod literal_watcher;
 pub mod state;
 pub mod statistics;
 mod unit_propagation;
+
 use crate::cnf::{Clause, Solution, VarId};
 use crate::preprocessor::Preprocessor;
 use crate::solver::branching::Brancher;
 use crate::solver::config::Config;
+use crate::solver::heuristic::HeuristicType;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::unit_propagation::UnitPropagator;
@@ -21,9 +24,9 @@ pub struct Solver {
 }
 
 impl Solver {
-    pub fn new(clauses: Vec<Clause>) -> Self {
+    pub fn new(clauses: Vec<Clause>, heuristic_type: HeuristicType) -> Self {
         let cnf = clauses;
-        let config = Config::default();
+        let config = Config::new(heuristic_type);
         let preprocessor = Preprocessor::default();
 
         Solver {
@@ -35,10 +38,10 @@ impl Solver {
     }
 
     pub fn solve(&mut self) -> Solution {
+        self.state.stats.start_timing();
         if let Some(solution) = self.preprocess() {
             return solution;
         }
-        self.state.stats.start_timing();
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut unit_propagator = UnitPropagator::new();
         let mut brancher = Brancher::default();
@@ -50,11 +53,11 @@ impl Solver {
                 heuristic.replay_unassignments(brancher.assignments_to_undo());
                 let redone_assignment = brancher.backtrack(&mut self.state);
                 if redone_assignment.is_none() {
-                    self.state.stats.stop_timing();
-                    return None;
+                    break;
                 }
                 continue;
-            } else if self.state.is_satisfied() {
+            }
+            if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
             }
@@ -62,6 +65,8 @@ impl Solver {
             let assignment = heuristic.next(&self.state.vars);
             brancher.branch(&mut self.state, assignment);
         }
+        self.state.stats.stop_timing();
+        None
     }
 
     /// Preprocesses the clauses and updates the state

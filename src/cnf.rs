@@ -44,6 +44,10 @@ impl Literal {
     pub fn negative(&self) -> bool {
         self.value < 0
     }
+
+    pub fn id_val(&self) -> (VarId, bool) {
+        (self.id(), self.positive())
+    }
 }
 
 impl FromStr for Literal {
@@ -107,6 +111,16 @@ impl Clause {
             self.literals[self.watches[0]],
             self.literals[self.watches[1]],
         ]
+    }
+
+    /// Returns all indices with non-false entries.
+    pub fn possible_watches_idx(&self, vars: &[Option<bool>]) -> Vec<usize> {
+        self.literals
+            .iter()
+            .enumerate()
+            .filter(|(_, lit)| vars[lit.id()] != Some(!lit.positive()))
+            .map(|(i, _)| i)
+            .collect()
     }
 }
 

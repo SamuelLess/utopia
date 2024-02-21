@@ -9,11 +9,12 @@ pub struct Preprocessor {
 
 impl Preprocessor {
     pub fn process(&mut self, cnf: Vec<Clause>) -> Option<Vec<Clause>> {
-        let units = Preprocessor::unit_propagation(cnf.clone())?;
+        let new_cnf = Preprocessor::remove_true_clauses(cnf);
+        let units = Preprocessor::unit_propagation(new_cnf.clone())?;
         self.units = units.clone();
         let mut id = 1;
-        let mut new_cnf: Vec<Clause> = Vec::new();
-        for clause in cnf {
+        let mut prop_cnf = Vec::new();
+        for clause in new_cnf {
             // skip if satisfied
             if clause.literals.iter().any(|lit| units.contains(lit)) {
                 continue;
@@ -40,9 +41,9 @@ impl Preprocessor {
                 return None;
             }
             debug_assert_ne!(new_clause.len(), 1);
-            new_cnf.push(Clause::from(new_clause));
+            prop_cnf.push(Clause::from(new_clause));
         }
-        Some(new_cnf)
+        Some(prop_cnf)
     }
 
     pub fn map_solution(&self, solution: HashMap<VarId, bool>) -> HashMap<VarId, bool> {
@@ -103,6 +104,17 @@ impl Preprocessor {
                     .cloned()
                     .collect();
                 Clause::from(new_literals)
+            })
+            .collect()
+    }
+
+    pub fn remove_true_clauses(cnf: Vec<Clause>) -> Vec<Clause> {
+        cnf.into_iter()
+            .filter(|clause| {
+                !clause
+                    .literals
+                    .iter()
+                    .any(|lit| clause.literals.contains(&-*lit))
             })
             .collect()
     }

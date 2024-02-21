@@ -22,11 +22,11 @@ impl HeuristicDecay {
 
     pub fn initialize(&mut self, state: &State) {
         // start out with all variables having a heuristic value of 1 and set to true
-        self.order = (0..state.vars.len())
+        self.order = (1..=state.vars.len())
             .map(|id| (id, true, 1.0))
             .collect_vec();
 
-        self.positions = (0..state.vars.len()).collect_vec();
+        self.positions = (0..=state.vars.len()).collect_vec();
 
         self.recalc_positions();
     }

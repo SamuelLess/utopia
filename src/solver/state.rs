@@ -1,19 +1,14 @@
 use crate::cnf::{Clause, ClauseId, Literal, VarId};
+use crate::solver::literal_watcher::{LiteralWatcher, WatchUpdate};
 use crate::solver::statistics::StateStatistics;
 use std::collections::{HashMap, HashSet, VecDeque};
-
-#[derive(Debug, Default, Clone)]
-pub struct VarWatches {
-    pub pos: Vec<ClauseId>,
-    pub neg: Vec<ClauseId>,
-}
 
 #[derive(Debug, Clone)]
 pub struct State {
     pub in_conflict: bool,
     pub vars: Vec<Option<bool>>,
     pub clauses: Vec<Clause>,
-    pub var_watches: Vec<VarWatches>,
+    pub literal_watcher: LiteralWatcher,
     pub num_vars: usize,
     pub unit_literals: VecDeque<Literal>,
     pub stats: StateStatistics,
@@ -21,7 +16,6 @@ pub struct State {
 
 impl State {
     pub fn init(clauses: Vec<Clause>) -> Self {
-        //let mut num_vars: Vec<VarId> = clauses.iter().flatten().map(|lit| lit.id()).collect();
         let all_vars: HashSet<VarId> = clauses
             .clone()
             .into_iter()
@@ -29,24 +23,11 @@ impl State {
             .map(|lit| lit.id())
             .collect();
 
-        let mut var_watches = vec![VarWatches::default(); all_vars.len() + 1];
-
-        for (clause_id, clause) in clauses.clone().into_iter().enumerate() {
-            for literal in clause.watches() {
-                let var_id = literal.id();
-                if literal.positive() {
-                    var_watches[var_id].pos.push(clause_id);
-                } else {
-                    var_watches[var_id].neg.push(clause_id);
-                }
-            }
-        }
-
         State {
             in_conflict: false,
             vars: vec![None; all_vars.len() + 1],
             clauses: clauses.clone(),
-            var_watches,
+            literal_watcher: LiteralWatcher::new(&clauses, all_vars.len()),
             num_vars: all_vars.len(),
             unit_literals: VecDeque::new(),
             stats: StateStatistics::new(clauses.len(), all_vars.len()),
@@ -55,63 +36,59 @@ impl State {
 
     pub fn assign(&mut self, lit: Literal) {
         self.stats.num_assignments += 1;
-        let var_id = lit.id();
-        let value = lit.positive();
+        let (var_id, value) = lit.id_val();
+        if self.vars[var_id].is_some() {
+            panic!("Variable {} is already assigned!", var_id);
+        }
         self.vars[var_id] = Some(value);
 
-        // find new watches for false literals
-        let affected_clauses = if value {
-            &self.var_watches[var_id].neg
-        } else {
-            &self.var_watches[var_id].pos
-        };
-        let mut changes: Vec<(ClauseId, Literal)> = vec![];
+        let affected_clauses = self.literal_watcher.affected_clauses(lit);
+        let mut changes: Vec<(ClauseId, [Literal; 2], [Literal; 2])> = vec![];
         for clause_id in affected_clauses {
             let clause = &mut self.clauses[*clause_id];
             if clause.is_satisfied(&self.vars) {
                 continue;
             }
-            let watches_literal = clause.watches();
-            let update_first = watches_literal[0].id() == var_id;
-            let new_watch = clause.literals.iter().enumerate().find(|(_, lit)| {
-                let id = lit.id();
-                id != watches_literal[0].id()
-                    && id != watches_literal[1].id()
-                    && self.vars[id].is_none()
-            });
-            if let Some((idx, _)) = new_watch {
-                clause.watches[if update_first { 0 } else { 1 }] = idx;
-                clause.watches.sort();
-                changes.push((*clause_id, clause.literals[idx]));
-            } else {
-                // there is no new watch, so the clause is now unit or in conflict
-                let unit_lit = clause.literals.iter().find(|lit| {
-                    let id = lit.id();
-                    self.vars[id].is_none()
-                });
-                if let Some(lit) = unit_lit {
-                    self.stats.num_propagations += 1;
-                    self.unit_literals.push_back(*lit);
-                } else {
-                    self.stats.num_conflicts += 1;
+            let before = clause.watches();
+            let watch_update = LiteralWatcher::update_clause(clause, &self.vars);
+            changes.push((*clause_id, before, clause.watches()));
+            match watch_update {
+                WatchUpdate::Successful(_) => {}
+                WatchUpdate::Unit(unit) => {
+                    if !self.unit_literals.contains(&unit) {
+                        self.unit_literals.push_back(unit);
+                    }
+                }
+                WatchUpdate::Conflict => {
                     self.in_conflict = true;
-                    self.unit_literals.clear();
+                    self.stats.num_conflicts += 1;
+                    break;
                 }
             }
         }
+        self.literal_watcher.update_watches(&changes);
+    }
 
-        // update watches
-        for (clause_id, new_watch) in changes {
-            if lit.positive() {
-                self.var_watches[lit.id()].neg.retain(|id| *id != clause_id);
-            } else {
-                self.var_watches[lit.id()].pos.retain(|id| *id != clause_id);
+    /// Verifies the watched literal invariant.
+    /// Every unsatisfied clause has at least one watched literal
+    /// that is non-false. If exactly one is non-false, it is
+    /// queued for unit propagation. This leads to the clause
+    /// being either satisfied or creating a conflict. Therefore
+    /// the next steps either disregard the clause or both
+    /// watched literals are non-false again.
+    pub fn verify_watches(&self) {
+        for clause in self.clauses.iter() {
+            if clause.is_satisfied(&self.vars) {
+                continue;
             }
-            if new_watch.positive() {
-                self.var_watches[new_watch.id()].pos.push(clause_id);
-            } else {
-                self.var_watches[new_watch.id()].neg.push(clause_id);
-            }
+            let watches = clause.watches();
+            assert_eq!(watches[0].id(), clause.literals[clause.watches[0]].id());
+            assert_eq!(watches[1].id(), clause.literals[clause.watches[1]].id());
+            let zero = self.vars[watches[0].id()].is_none()
+                || self.vars[watches[0].id()] == Some(watches[0].positive());
+            let one = self.vars[watches[1].id()].is_none()
+                || self.vars[watches[1].id()] == Some(watches[1].positive());
+            assert!(zero || one || self.in_conflict);
         }
     }
 
@@ -153,7 +130,6 @@ mod tests {
         assert_eq!(state.num_vars, 3);
         assert_eq!(state.vars, vec![None, None, None, None]);
         assert_eq!(state.clauses.len(), 3);
-        assert_eq!(state.var_watches.len(), 4);
     }
 
     #[test]
@@ -171,5 +147,26 @@ mod tests {
         assert_eq!(state.unit_literals[0], Literal::from(3));
         state.assign(Literal::from(-3));
         assert!(state.in_conflict);
+    }
+
+    #[test]
+    fn test_var_watches() {
+        let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3")];
+        let mut state = State::init(clauses);
+        println!("{:?}", state);
+        assert_eq!(state.literal_watcher.var_watches[1].pos, vec![0]);
+        assert_eq!(state.literal_watcher.var_watches[1].neg, vec![1]);
+        assert_eq!(state.literal_watcher.var_watches[3].pos, vec![]);
+
+        state.assign(Literal::from(1));
+        state.assign(Literal::from(2));
+        println!("{:?}", state);
+        assert!(state.clauses[0].watches.contains(&0));
+        assert!(state.clauses[0].watches.contains(&1));
+        assert!(state.clauses[1].watches.contains(&1));
+        assert!(state.clauses[1].watches.contains(&2));
+
+        assert_eq!(state.literal_watcher.var_watches[1].pos, vec![0]);
+        assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
     }
 }

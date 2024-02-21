@@ -2,10 +2,11 @@ use clap::Parser;
 use std::collections::HashMap;
 use utopia::cnf::{check_assignment, Clause, VarId};
 use utopia::dimacs::{clauses_from_dimacs_file, solution_to_dimacs};
+use utopia::solver::heuristic::HeuristicType;
 use utopia::solver::statistics::StateStatistics;
 use utopia::solver::Solver;
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(index = 1)]
@@ -14,6 +15,9 @@ struct Args {
     /// Output path for solution
     #[arg(short, long, global = true, help = "Output path for solution")]
     out: Option<String>,
+
+    #[arg(long, default_value = "decay")]
+    heuristic: HeuristicType,
 }
 
 fn main() {
@@ -21,7 +25,7 @@ fn main() {
 
     let cnf = clauses_from_dimacs_file(&args.file).unwrap();
 
-    let mut solver = Solver::new(cnf.clone());
+    let mut solver = Solver::new(cnf.clone(), args.heuristic.clone());
 
     let solution = solver.solve();
 

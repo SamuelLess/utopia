@@ -3,6 +3,7 @@ pub mod decay;
 
 use crate::solver::branching::Assignment;
 use crate::solver::state::State;
+use clap::ValueEnum;
 
 pub trait Heuristic {
     fn init(state: &State) -> Self
@@ -12,16 +13,20 @@ pub trait Heuristic {
     fn next(&mut self, vars: &[Option<bool>]) -> Assignment;
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+#[clap(rename_all = "kebab_case")]
 pub enum HeuristicType {
-    TrueFirst,
+    #[clap(name = "decay")]
     Decay,
+    #[clap(name = "true-first")]
+    TrueFirst,
 }
 
 impl HeuristicType {
     pub fn create(&self, state: &State) -> Box<dyn Heuristic> {
         match self {
-            HeuristicType::TrueFirst => Box::new(basic::HeuristicTrue::init(state)),
             HeuristicType::Decay => Box::new(decay::HeuristicDecay::init(state)),
+            HeuristicType::TrueFirst => Box::new(basic::HeuristicTrue::init(state)),
         }
     }
 }
