@@ -81,12 +81,11 @@ impl Heuristic for HeuristicDecay {
 
     fn replay_unassignments(&mut self, assignments: &[Assignment]) {
         for assignment in assignments {
-            self.unassigned_var(assignment.var);
+            self.unassigned_var(assignment.literal.id());
         }
     }
 
-    fn next(&mut self, vars: &[Option<bool>]) -> Assignment {
-        let literal = self.choose_literal(vars);
-        Assignment::heuristic(literal.id(), literal.positive())
+    fn next(&mut self, vars: &[Option<bool>]) -> Literal {
+        self.choose_literal(vars)
     }
 }

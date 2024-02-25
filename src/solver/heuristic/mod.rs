@@ -1,6 +1,7 @@
 pub mod basic;
 pub mod decay;
 
+use crate::cnf::Literal;
 use crate::solver::branching::Assignment;
 use crate::solver::state::State;
 use clap::ValueEnum;
@@ -10,7 +11,7 @@ pub trait Heuristic {
     where
         Self: Sized;
     fn replay_unassignments(&mut self, assignments: &[Assignment]);
-    fn next(&mut self, vars: &[Option<bool>]) -> Assignment;
+    fn next(&mut self, vars: &[Option<bool>]) -> Literal;
 }
 
 #[derive(Debug, Clone, ValueEnum)]

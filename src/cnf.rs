@@ -67,7 +67,7 @@ impl From<i32> for Literal {
 
 impl From<Assignment> for Literal {
     fn from(assignment: Assignment) -> Self {
-        Literal::from_value(assignment.var, assignment.value)
+        assignment.literal
     }
 }
 
@@ -93,7 +93,7 @@ impl Display for Literal {
 
 pub type ClauseId = usize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
     pub literals: Vec<Literal>,
     pub watches: [usize; 2],
@@ -121,6 +121,21 @@ impl Clause {
             .filter(|(_, lit)| vars[lit.id()] != Some(!lit.positive()))
             .map(|(i, _)| i)
             .collect()
+    }
+
+    // TODO: find a more performant way to do this
+    pub fn resolution(self, other: Self) -> Self {
+        let mut new_literals = self.literals.clone();
+        new_literals.extend(other.literals);
+        new_literals.sort_unstable();
+        new_literals.dedup();
+        let to_filter = new_literals
+            .clone()
+            .into_iter()
+            .filter(|lit| new_literals.contains(&-*lit))
+            .collect::<Vec<_>>();
+        new_literals.retain(|lit| !to_filter.contains(lit));
+        Clause::from(new_literals)
     }
 }
 
@@ -159,3 +174,24 @@ impl Display for Clause {
 
 pub type SolutionAssignment = HashMap<VarId, bool>;
 pub type Solution = Option<SolutionAssignment>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clause_resolution() {
+        let clause1 = Clause::from("1 2 3");
+        let clause2 = Clause::from("1 2 -3");
+        assert_eq!(clause1.resolution(clause2), Clause::from("1 2"));
+        let clause1 = Clause::from("1 2 3");
+        let clause2 = Clause::from("1 2 3");
+        assert_eq!(clause1.resolution(clause2), Clause::from("1 2 3"));
+        let clause1 = Clause::from("1 2 3");
+        let clause2 = Clause::from("1 -2 -3");
+        assert_eq!(clause1.resolution(clause2), Clause::from("1"));
+        let clause1 = Clause::from("1 2 3");
+        let clause2 = Clause::from("-2 -3 4");
+        assert_eq!(clause1.resolution(clause2), Clause::from("1 4"));
+    }
+}

@@ -25,6 +25,12 @@ impl LiteralWatcher {
         }
     }
 
+    pub fn add_clause(&mut self, clause: &Clause, clause_id: ClauseId) {
+        for lit in clause.watches() {
+            self.add_watch(lit, clause_id);
+        }
+    }
+
     pub fn affected_clauses(&self, lit: Literal) -> &[ClauseId] {
         if lit.positive() {
             &self.var_watches[lit.id()].neg
@@ -98,6 +104,7 @@ impl LiteralWatcher {
 mod tests {
     use super::*;
     use crate::solver::state::State;
+    use crate::solver::unit_propagation::UnitPropagator;
 
     #[test]
     fn test_update_watches_clauses() {
@@ -118,17 +125,18 @@ mod tests {
     fn test_update_watches() {
         let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3 4")];
         let mut state = State::init(clauses);
-        state.assign(Literal::from(1));
+        let mut unit_prop = UnitPropagator::default();
+        state.assign(Literal::from(1), &mut unit_prop);
         assert_eq!(state.clauses[0].watches, [0, 1]);
         assert_eq!(state.clauses[1].watches, [1, 2]);
         println!("{:?}", state);
         assert_eq!(state.literal_watcher.var_watches[1].neg, vec![]);
         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
-        state.assign(Literal::from(2));
+        state.assign(Literal::from(2), &mut unit_prop);
         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
         println!("{:?}", state);
         state.unassign(Literal::from(2));
-        state.assign(Literal::from(-3));
+        state.assign(Literal::from(-3), &mut unit_prop);
         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![]);
         assert_eq!(state.literal_watcher.var_watches[3].neg, vec![]);
         println!("{:?}", state);
@@ -138,12 +146,13 @@ mod tests {
     fn test_update_watches_2() {
         let clauses = vec![Clause::from("-1 -2 3")];
         let mut state = State::init(clauses);
-        state.assign(Literal::from(-1));
-        state.assign(Literal::from(2));
+        let mut unit_prop = UnitPropagator::default();
+        state.assign(Literal::from(-1), &mut unit_prop);
+        state.assign(Literal::from(2), &mut unit_prop);
         state.unassign(Literal::from(2));
         state.unassign(Literal::from(-1));
-        state.assign(Literal::from(1));
-        state.assign(Literal::from(2));
+        state.assign(Literal::from(1), &mut unit_prop);
+        state.assign(Literal::from(2), &mut unit_prop);
         state.verify_watches();
         println!("{:?}", state);
     }

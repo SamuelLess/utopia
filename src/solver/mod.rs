@@ -1,14 +1,16 @@
 pub mod branching;
+mod clause_learning;
 pub mod config;
 pub mod heuristic;
-mod literal_watcher;
+mod literal_watching;
 pub mod state;
 pub mod statistics;
 mod unit_propagation;
 
 use crate::cnf::{Clause, Solution, VarId};
 use crate::preprocessor::Preprocessor;
-use crate::solver::branching::Brancher;
+use crate::solver::branching::{AssignmentReason, Brancher};
+use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::heuristic::HeuristicType;
 use crate::solver::state::State;
@@ -21,6 +23,7 @@ pub struct Solver {
     cnf: Vec<Clause>,
     state: State,
     preprocessor: Preprocessor,
+    clause_learner: ClauseLearner,
 }
 
 impl Solver {
@@ -28,12 +31,14 @@ impl Solver {
         let cnf = clauses;
         let config = Config::new(heuristic_type);
         let preprocessor = Preprocessor::default();
+        let clause_learner = ClauseLearner::default();
 
         Solver {
             config,
             cnf,
             state: State::init(vec![]),
             preprocessor,
+            clause_learner,
         }
     }
 
@@ -43,15 +48,25 @@ impl Solver {
             return solution;
         }
         let mut heuristic = self.config.heuristic.create(&self.state);
-        let mut unit_propagator = UnitPropagator::new();
+        let mut unit_propagator = UnitPropagator::default();
         let mut brancher = Brancher::default();
 
         loop {
             unit_propagator.propagate(&mut self.state, &mut brancher);
 
-            if self.state.in_conflict {
+            if let Some(conflict_clause_id) = self.state.conflict_clause_id.clone() {
+                // find conflict clause
+                let new_clause = self.clause_learner.learn_clause(
+                    &mut brancher,
+                    &self.state.clauses,
+                    conflict_clause_id,
+                );
+
+                let new_clause_id = self.state.add_clause(new_clause);
+
                 heuristic.replay_unassignments(brancher.assignments_to_undo());
-                let redone_assignment = brancher.backtrack(&mut self.state);
+                let redone_assignment =
+                    brancher.backtrack(&mut self.state, &mut unit_propagator, conflict_clause_id);
                 if redone_assignment.is_none() {
                     break;
                 }
@@ -62,8 +77,13 @@ impl Solver {
                 return Some(self.get_solution());
             }
 
-            let assignment = heuristic.next(&self.state.vars);
-            brancher.branch(&mut self.state, assignment);
+            let next_literal = heuristic.next(&self.state.vars);
+            brancher.branch(
+                &mut self.state,
+                &mut unit_propagator,
+                next_literal,
+                AssignmentReason::Heuristic,
+            );
         }
         self.state.stats.stop_timing();
         None
