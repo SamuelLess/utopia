@@ -2,8 +2,8 @@ pub mod basic;
 pub mod decay;
 
 use crate::cnf::Literal;
-use crate::solver::branching::Assignment;
 use crate::solver::state::State;
+use crate::solver::trail::Assignment;
 use clap::ValueEnum;
 
 pub trait Heuristic {

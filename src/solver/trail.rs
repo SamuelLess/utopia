@@ -1,6 +1,7 @@
-use crate::cnf::{Clause, ClauseId, Literal, VarId};
+use crate::cnf::{ClauseId, Literal};
 use crate::solver::state::State;
 use crate::solver::unit_propagation::UnitPropagator;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
@@ -35,13 +36,13 @@ pub enum AssignmentReason {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Brancher {
+pub struct Trail {
     pub assignment_stack: Vec<Assignment>,
     pub decision_level: usize,
 }
 
-impl Brancher {
-    pub fn branch(
+impl Trail {
+    pub fn assign(
         &mut self,
         state: &mut State,
         unit_propagator: &mut UnitPropagator,
@@ -69,25 +70,38 @@ impl Brancher {
         &mut self,
         state: &mut State,
         unit_propagator: &mut UnitPropagator,
-        conflict_clause: ClauseId,
-    ) -> Option<Assignment> {
-        self.decision_level -= 1;
-        let mut new_assignment: Option<Assignment> = None;
+        learned_clause_id: ClauseId,
+    ) -> bool {
+        let mut is_done = false;
+        let conflict_clause = state.clauses[learned_clause_id].clone();
+        // top most element is in the conflict clause and has highest decision level
+        let top = self
+            .assignment_stack
+            .pop()
+            .expect("No conflict with assignments to backtrack!");
+        assert_eq!(self.decision_level, top.decision_level);
+        state.unassign(top.literal);
+
         while let Some(assignment) = self.assignment_stack.pop() {
-            state.unassign(assignment.clone().into());
-            if assignment.reason == AssignmentReason::Heuristic {
-                new_assignment = Some(Assignment::forced(
-                    -assignment.literal,
-                    self.decision_level,
-                    conflict_clause,
-                ));
+            state.unassign(assignment.literal);
+            if conflict_clause.literals.contains(&assignment.literal) {
                 break;
             }
         }
+        if self.assignment_stack.is_empty() {
+            is_done = true;
+        } else {
+            while let Some(assignment) = self.assignment_stack.pop() {
+                if assignment.reason == AssignmentReason::Heuristic {
+                    self.decision_level = assignment.decision_level;
+                    unit_propagator.add_unit(-assignment.literal, learned_clause_id);
+                    break;
+                }
+            }
+        }
+
         state.conflict_clause_id = None;
-        state.assign(new_assignment.clone()?.into(), unit_propagator);
-        self.push_assignment(new_assignment.clone()?);
-        new_assignment
+        is_done
     }
 
     /// Returns the assignments that from top to most recent heuristic
@@ -139,20 +153,20 @@ mod tests {
 
     #[test]
     fn test_backtrack() {
-        let mut brancher = Brancher::default();
+        let mut brancher = Trail::default();
         let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3")];
         let mut state = State::init(clauses);
         let mut unit_prop = UnitPropagator::default();
         println!("{:?}", state);
         let assignment1 = Assignment::heuristic(1.into(), 1);
         let assignment2 = Assignment::heuristic(2.into(), 2);
-        brancher.branch(
+        brancher.assign(
             &mut state,
             &mut unit_prop,
             assignment1.clone().into(),
             AssignmentReason::Heuristic,
         );
-        brancher.branch(
+        brancher.assign(
             &mut state,
             &mut unit_prop,
             assignment2.clone().into(),

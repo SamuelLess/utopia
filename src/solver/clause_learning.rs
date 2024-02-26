@@ -1,5 +1,5 @@
 use crate::cnf::{Clause, ClauseId};
-use crate::solver::branching::{AssignmentReason, Brancher};
+use crate::solver::trail::{AssignmentReason, Trail};
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
@@ -8,7 +8,7 @@ impl ClauseLearner {
     /// Assumes that the current state is in conflict
     pub fn learn_clause(
         &mut self,
-        brancher: &mut Brancher,
+        brancher: &mut Trail,
         clauses: &[Clause],
         conflict_clause_id: ClauseId,
     ) -> Clause {
@@ -43,8 +43,8 @@ impl ClauseLearner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::branching::{Assignment, AssignmentReason};
     use crate::solver::state::State;
+    use crate::solver::trail::{Assignment, AssignmentReason};
     use crate::solver::unit_propagation::UnitPropagator;
 
     #[test]
@@ -64,13 +64,13 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut clause_learner = ClauseLearner::default();
-        let mut brancher = Brancher::default();
+        let mut brancher = Trail::default();
         let mut unit_propagator = UnitPropagator::default();
 
         let assigments = vec![-9, -10, 12, 1];
         // unit: 11
         for assignment in assigments {
-            brancher.branch(
+            brancher.assign(
                 &mut state,
                 &mut unit_propagator,
                 assignment.into(),
@@ -116,11 +116,11 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut clause_learner = ClauseLearner::default();
-        let mut brancher = Brancher::default();
+        let mut brancher = Trail::default();
         let mut unit_propagator = UnitPropagator::default();
         let assignments = vec![1, 2, 3, 4];
         for assignment in assignments {
-            brancher.branch(
+            brancher.assign(
                 &mut state,
                 &mut unit_propagator,
                 assignment.into(),

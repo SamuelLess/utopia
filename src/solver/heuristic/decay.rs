@@ -1,7 +1,7 @@
 use crate::cnf::{Literal, VarId};
-use crate::solver::branching::Assignment;
 use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
+use crate::solver::trail::Assignment;
 use itertools::Itertools;
 
 #[derive(Default)]

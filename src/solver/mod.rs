@@ -1,20 +1,20 @@
-pub mod branching;
 mod clause_learning;
 pub mod config;
 pub mod heuristic;
 mod literal_watching;
 pub mod state;
 pub mod statistics;
+pub mod trail;
 mod unit_propagation;
 
 use crate::cnf::{Clause, Solution, VarId};
 use crate::preprocessor::Preprocessor;
-use crate::solver::branching::{AssignmentReason, Brancher};
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::heuristic::HeuristicType;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
+use crate::solver::trail::{AssignmentReason, Trail};
 use crate::solver::unit_propagation::UnitPropagator;
 use std::collections::HashMap;
 
@@ -49,25 +49,24 @@ impl Solver {
         }
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut unit_propagator = UnitPropagator::default();
-        let mut brancher = Brancher::default();
+        let mut trail = Trail::default();
 
         loop {
-            unit_propagator.propagate(&mut self.state, &mut brancher);
+            unit_propagator.propagate(&mut self.state, &mut trail);
 
-            if let Some(conflict_clause_id) = self.state.conflict_clause_id.clone() {
+            if let Some(conflict_clause_id) = self.state.conflict_clause_id {
                 // find conflict clause
                 let new_clause = self.clause_learner.learn_clause(
-                    &mut brancher,
+                    &mut trail,
                     &self.state.clauses,
                     conflict_clause_id,
                 );
 
                 let new_clause_id = self.state.add_clause(new_clause);
 
-                heuristic.replay_unassignments(brancher.assignments_to_undo());
-                let redone_assignment =
-                    brancher.backtrack(&mut self.state, &mut unit_propagator, conflict_clause_id);
-                if redone_assignment.is_none() {
+                heuristic.replay_unassignments(trail.assignments_to_undo());
+                let is_done = trail.backtrack(&mut self.state, &mut unit_propagator, new_clause_id);
+                if is_done {
                     break;
                 }
                 continue;
@@ -78,7 +77,7 @@ impl Solver {
             }
 
             let next_literal = heuristic.next(&self.state.vars);
-            brancher.branch(
+            trail.assign(
                 &mut self.state,
                 &mut unit_propagator,
                 next_literal,

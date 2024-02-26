@@ -1,4 +1,4 @@
-use crate::solver::branching::Assignment;
+use crate::solver::trail::Assignment;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Neg;

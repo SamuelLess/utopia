@@ -1,6 +1,6 @@
 use crate::cnf::{ClauseId, Literal};
-use crate::solver::branching::{AssignmentReason, Brancher};
 use crate::solver::state::State;
+use crate::solver::trail::{AssignmentReason, Trail};
 use std::collections::VecDeque;
 
 #[derive(Debug, Default)]
@@ -19,9 +19,9 @@ impl UnitPropagator {
         self.units.push(lit);
     }
 
-    pub fn propagate(&mut self, state: &mut State, brancher: &mut Brancher) {
+    pub fn propagate(&mut self, state: &mut State, trail: &mut Trail) {
         while let Some((lit, clause_id)) = self.unit_queue.pop_front() {
-            brancher.branch(state, self, lit, AssignmentReason::Forced(clause_id));
+            trail.assign(state, self, lit, AssignmentReason::Forced(clause_id));
             if state.conflict_clause_id.is_some() {
                 self.unit_queue.clear();
                 self.units.clear();
