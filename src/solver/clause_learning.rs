@@ -1,42 +1,55 @@
 use crate::cnf::{Clause, ClauseId};
 use crate::solver::trail::{AssignmentReason, Trail};
+use itertools::Itertools;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
 
 impl ClauseLearner {
     /// Assumes that the current state is in conflict
-    pub fn learn_clause(
+    pub fn analyse_conflict(
         &mut self,
-        brancher: &mut Trail,
+        trail: &mut Trail,
         clauses: &[Clause],
         conflict_clause_id: ClauseId,
-    ) -> Clause {
-        let decision_level_literals = brancher
+    ) -> (Clause, usize) {
+        let decision_level_literals = trail
             .assignment_stack
             .iter()
-            .filter(|a| a.decision_level == brancher.decision_level)
+            .filter(|a| a.decision_level == trail.decision_level)
             .map(|a| a.literal)
             .collect::<Vec<_>>();
 
         let mut learned_clause = clauses[conflict_clause_id].clone();
-        for assignment in brancher.assignment_stack.iter().rev() {
+        for assignment in trail.assignment_stack.iter().rev() {
             let left_decision_level_literals = learned_clause.literals.iter().filter(|lit| {
                 decision_level_literals.contains(lit) || decision_level_literals.contains(&-**lit)
             });
             if left_decision_level_literals.count() <= 1 {
                 break;
             }
-            let old_clause = learned_clause.clone();
             if let AssignmentReason::Forced(reason) = assignment.reason {
                 let reason_clause = &clauses[reason];
                 learned_clause = learned_clause.resolution(reason_clause.clone());
             }
-            if learned_clause.literals.len() <= 1 {
-                return old_clause;
-            }
         }
-        learned_clause
+        // assertion level
+        let assertion_level = learned_clause
+            .clone()
+            .map(|lit| {
+                trail
+                    .assignment_stack
+                    .iter()
+                    .find(|a| a.literal.id() == lit.id())
+                    .unwrap()
+                    .decision_level
+            })
+            .sorted()
+            .rev()
+            .nth(1)
+            .unwrap_or(0);
+        assert!(assertion_level < trail.decision_level);
+        (learned_clause, assertion_level)
     }
 }
 
@@ -94,7 +107,7 @@ mod tests {
         assert!(state.conflict_clause_id.is_some());
         // clause learning begins
         println!("{:?}", brancher.assignment_stack);
-        let clause = clause_learner.learn_clause(
+        let clause = clause_learner.analyse_conflict(
             &mut brancher,
             &state.clauses,
             state.conflict_clause_id.clone().unwrap(),
@@ -116,28 +129,56 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut clause_learner = ClauseLearner::default();
-        let mut brancher = Trail::default();
+        let mut trail = Trail::default();
         let mut unit_propagator = UnitPropagator::default();
         let assignments = vec![1, 2, 3, 4];
         for assignment in assignments {
-            brancher.assign(
+            trail.assign(
                 &mut state,
                 &mut unit_propagator,
                 assignment.into(),
                 AssignmentReason::Heuristic,
             );
-            unit_propagator.propagate(&mut state, &mut brancher);
+            unit_propagator.propagate(&mut state, &mut trail);
         }
         state.verify_watches();
-        println!("{}", brancher.implication_graph(&state));
+        println!("{}", trail.implication_graph(&state));
         assert!(state.conflict_clause_id.is_some());
         println!("{:?}", state.conflict_clause_id);
-        println!("{:#?}", brancher.assignment_stack);
-        let clause = clause_learner.learn_clause(
-            &mut brancher,
+        println!("{:#?}", trail.assignment_stack);
+    }
+
+    #[test]
+    fn implication_graph() {
+        let cnf = vec![
+            Clause::from("-1 -2 -3"), // 0
+            Clause::from("-2 -4 -5"), // 1
+            Clause::from("3 5 6"),    // 2
+            Clause::from("-6 -7"),    // 3
+            Clause::from("-6 -8"),    // 4
+            Clause::from("7 8"),      // 5
+        ];
+        let mut state = State::init(cnf.clone());
+        let mut clause_learner = ClauseLearner::default();
+        let mut unit_propagator = UnitPropagator::default();
+        let mut trail = Trail::default();
+        let mut clause_learner = ClauseLearner::default();
+        let assignments = vec![1, 2, 4];
+        for assignment in assignments {
+            trail.assign(
+                &mut state,
+                &mut unit_propagator,
+                assignment.into(),
+                AssignmentReason::Heuristic,
+            );
+            unit_propagator.propagate(&mut state, &mut trail);
+        }
+        println!("{}", trail.implication_graph(&state));
+        let learned_clause = clause_learner.analyse_conflict(
+            &mut trail,
             &state.clauses,
             state.conflict_clause_id.unwrap(),
         );
-        println!("learned clause {:?}", clause);
+        println!("{:?}", learned_clause);
     }
 }

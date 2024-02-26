@@ -1,7 +1,6 @@
 use crate::cnf::{ClauseId, Literal};
 use crate::solver::state::State;
 use crate::solver::unit_propagation::UnitPropagator;
-use itertools::Itertools;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
@@ -71,48 +70,48 @@ impl Trail {
         state: &mut State,
         unit_propagator: &mut UnitPropagator,
         learned_clause_id: ClauseId,
+        assertion_level: usize,
     ) -> bool {
-        let mut is_done = false;
-        let conflict_clause = state.clauses[learned_clause_id].clone();
-        // top most element is in the conflict clause and has highest decision level
-        let top = self
-            .assignment_stack
-            .pop()
-            .expect("No conflict with assignments to backtrack!");
-        assert_eq!(self.decision_level, top.decision_level);
-        state.unassign(top.literal);
+        if self.decision_level == 0 {
+            return true;
+        }
+        let learned_clause = state.clauses[learned_clause_id].clone();
 
-        while let Some(assignment) = self.assignment_stack.pop() {
-            state.unassign(assignment.literal);
-            if conflict_clause.literals.contains(&assignment.literal) {
+        let top = learned_clause
+            .clone()
+            .find(|lit| {
+                let assignment = self
+                    .assignment_stack
+                    .iter()
+                    .find(|a| a.literal.id() == lit.id())
+                    .unwrap();
+                assignment.decision_level == self.decision_level
+            })
+            .expect("Clause was not UIP");
+        // top most element is in the conflict clause and has highest decision level
+        unit_propagator.enqueue(top, learned_clause_id);
+        while let Some(assignment) = self.assignment_stack.last().cloned() {
+            if assignment.decision_level == assertion_level {
                 break;
             }
+            self.assignment_stack.pop();
+            state.unassign(assignment.literal);
         }
-        if self.assignment_stack.is_empty() {
-            is_done = true;
-        } else {
-            while let Some(assignment) = self.assignment_stack.pop() {
-                if assignment.reason == AssignmentReason::Heuristic {
-                    self.decision_level = assignment.decision_level;
-                    unit_propagator.add_unit(-assignment.literal, learned_clause_id);
-                    break;
-                }
-            }
-        }
-
+        self.decision_level = assertion_level;
         state.conflict_clause_id = None;
-        is_done
+        false
     }
 
     /// Returns the assignments that from top to most recent heuristic
-    pub fn assignments_to_undo(&self) -> &[Assignment] {
+    pub fn assignments_to_undo(&self, assertion_level: usize) -> &[Assignment] {
         // find the last heuristic assignment
         let last = self
             .assignment_stack
             .iter()
             .rev()
-            .position(|assignment| assignment.reason == AssignmentReason::Heuristic)
+            .position(|assignment| assignment.decision_level == assertion_level)
             .unwrap_or(0);
+        // [1@1,7@1,2@2,3@2,4@3,5@3] -> 3 idx = 2 ->  len=6-2-1=4
         let len = self.assignment_stack.len();
         &self.assignment_stack[(len - last)..]
     }

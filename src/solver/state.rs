@@ -56,7 +56,7 @@ impl State {
             match watch_update {
                 WatchUpdate::Successful(_) => {}
                 WatchUpdate::Unit(unit) => {
-                    unit_propagator.add_unit(unit, *clause_id);
+                    unit_propagator.enqueue(unit, *clause_id);
                 }
                 WatchUpdate::Conflict => {
                     self.conflict_clause_id = Some(*clause_id);
@@ -75,7 +75,10 @@ impl State {
     pub fn add_clause(&mut self, clause: Clause) -> ClauseId {
         let id = self.clauses.len();
         self.clauses.push(clause.clone());
-        self.literal_watcher.add_clause(&clause, id);
+        if clause.literals.len() != 1 {
+            // watches are invalid unit will always be true
+            self.literal_watcher.add_clause(&clause, id);
+        }
         id
     }
 
