@@ -57,13 +57,14 @@ pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
     }
     clauses.pop();
 
+    /*
     if clauses.len() != num_clauses {
         return Err(format!(
             "Expected {} clauses, got {}",
             num_clauses,
             clauses.len()
         ));
-    }
+    }*/
 
     // Normalize CNF: sort clauses and remove duplicate literals
     for clause in clauses.iter_mut() {

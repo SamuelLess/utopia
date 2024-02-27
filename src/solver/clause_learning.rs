@@ -1,11 +1,21 @@
-use crate::cnf::{Clause, ClauseId};
+use crate::cnf::{Clause, ClauseId, Literal};
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
+use std::collections::HashSet;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
 
 impl ClauseLearner {
+    pub fn get_decision_level(lit: Literal, trail: &Trail) -> usize {
+        trail
+            .assignment_stack
+            .iter()
+            .find(|a| a.literal.id() == lit.id())
+            .unwrap()
+            .decision_level
+    }
+
     /// Assumes that the current state is in conflict
     pub fn analyse_conflict(
         &mut self,
@@ -13,29 +23,68 @@ impl ClauseLearner {
         clauses: &[Clause],
         conflict_clause_id: ClauseId,
     ) -> (Clause, usize) {
-        let decision_level_literals = trail
-            .assignment_stack
-            .iter()
-            .filter(|a| a.decision_level == trail.decision_level)
-            .map(|a| a.literal)
-            .collect::<Vec<_>>();
+        let mut learned_clause = vec![];
 
-        let mut learned_clause = clauses[conflict_clause_id].clone();
-        for assignment in trail.assignment_stack.iter().rev() {
-            let left_decision_level_literals = learned_clause.literals.iter().filter(|lit| {
-                decision_level_literals.contains(lit) || decision_level_literals.contains(&-**lit)
-            });
-            if left_decision_level_literals.count() <= 1 {
+        // find learned clause
+        let mut count = 0;
+        let mut current_literal: Option<Literal> = None;
+        let mut current_reason_clause_id: ClauseId = conflict_clause_id;
+        let mut trail_position = trail.assignment_stack.len() - 1;
+        let mut seen = HashSet::new();
+
+        loop {
+            let conflict_clause = &clauses[current_reason_clause_id];
+
+            for lit in conflict_clause.literals.clone() {
+                if current_literal.is_some() && lit.id() == current_literal.unwrap().id() {
+                    continue; // current literal is not part of the reason clause
+                }
+
+                if !seen.contains(&lit.id()) && Self::get_decision_level(lit, trail) > 0 {
+                    seen.insert(lit.id());
+
+                    assert!(Self::get_decision_level(lit, trail) <= trail.decision_level);
+                    if Self::get_decision_level(lit, trail) == trail.decision_level {
+                        count += 1;
+                    } else {
+                        learned_clause.push(lit);
+                    }
+                }
+            }
+
+            // find next literal
+            while !seen.contains(&trail.assignment_stack[trail_position].literal.id()) {
+                trail_position -= 1;
+            }
+            current_literal = Some(trail.assignment_stack[trail_position].literal);
+
+            count -= 1;
+            if count == 0 {
                 break;
             }
-            if let AssignmentReason::Forced(reason) = assignment.reason {
-                let reason_clause = &clauses[reason];
-                learned_clause = learned_clause.resolution(reason_clause.clone());
+
+            current_reason_clause_id = match trail.assignment_stack[trail_position].reason {
+                AssignmentReason::Forced(reason) => reason,
+                AssignmentReason::Heuristic =>
+                    panic!("Search should be completed by now. Trying to resolve with branching assignment"),
             }
         }
+
+        learned_clause.push(current_literal.unwrap());
+
+        // learned clause is UIP
+        assert_eq!(
+            learned_clause
+                .iter()
+                .filter(|lit| Self::get_decision_level(**lit, trail) == trail.decision_level)
+                .count(),
+            1
+        );
+
         // assertion level
         let assertion_level = learned_clause
             .clone()
+            .iter()
             .map(|lit| {
                 trail
                     .assignment_stack
@@ -49,7 +98,7 @@ impl ClauseLearner {
             .nth(1)
             .unwrap_or(0);
         assert!(assertion_level < trail.decision_level);
-        (learned_clause, assertion_level)
+        (Clause::from(learned_clause), assertion_level)
     }
 }
 
@@ -146,6 +195,12 @@ mod tests {
         assert!(state.conflict_clause_id.is_some());
         println!("{:?}", state.conflict_clause_id);
         println!("{:#?}", trail.assignment_stack);
+        let learned_clause = clause_learner.analyse_conflict(
+            &mut trail,
+            &state.clauses,
+            state.conflict_clause_id.unwrap(),
+        );
+        println!("{:?}", learned_clause);
     }
 
     #[test]

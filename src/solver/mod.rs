@@ -55,6 +55,14 @@ impl Solver {
             unit_propagator.propagate(&mut self.state, &mut trail);
 
             if let Some(conflict_clause_id) = self.state.conflict_clause_id {
+                if trail.decision_level == 0 {
+                    for clause in self.state.clauses.clone() {
+                        println!("{:?}", clause.literals);
+                    }
+
+                    print!("UNSAT");
+                    break;
+                }
                 // find conflict clause
                 let (new_clause, assertion_level) = self.clause_learner.analyse_conflict(
                     &mut trail,
@@ -65,15 +73,12 @@ impl Solver {
                 let new_clause_id = self.state.add_clause(new_clause);
 
                 heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
-                let is_done = trail.backtrack(
+                trail.backtrack(
                     &mut self.state,
                     &mut unit_propagator,
                     new_clause_id,
                     assertion_level,
                 );
-                if is_done {
-                    break;
-                }
                 continue;
             }
             if self.state.is_satisfied() {

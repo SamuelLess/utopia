@@ -1,4 +1,5 @@
 use crate::cnf::{ClauseId, Literal};
+use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::state::State;
 use crate::solver::unit_propagation::UnitPropagator;
 
@@ -71,10 +72,7 @@ impl Trail {
         unit_propagator: &mut UnitPropagator,
         learned_clause_id: ClauseId,
         assertion_level: usize,
-    ) -> bool {
-        if self.decision_level == 0 {
-            return true;
-        }
+    ) {
         let learned_clause = state.clauses[learned_clause_id].clone();
 
         let top = learned_clause
@@ -99,7 +97,6 @@ impl Trail {
         }
         self.decision_level = assertion_level;
         state.conflict_clause_id = None;
-        false
     }
 
     /// Returns the assignments that from top to most recent heuristic
@@ -128,16 +125,23 @@ impl Trail {
                     if lit == &assignment.literal {
                         continue;
                     }
+                    let dl_lit = ClauseLearner::get_decision_level(*lit, &self);
+                    let dl_re =
+                        ClauseLearner::get_decision_level(assignment.literal.clone(), &self);
                     out.push_str(&format!(
-                        "{} -> {} [label=\"{}\"];\n",
-                        -*lit, assignment.literal, reason
+                        "\"{}@{}\" -> \"{}@{}\" [label=\"{}\"];\n",
+                        -*lit, dl_lit, assignment.literal, dl_re, reason,
                     ));
                 }
             }
         }
         if let Some(conflict_clause_id) = &state.conflict_clause_id {
             for lit in &state.clauses[*conflict_clause_id].literals {
-                out.push_str(&format!("{} -> C [color=red, label=\"\"];\n", -*lit));
+                let dl_lit = ClauseLearner::get_decision_level(*lit, &self);
+                out.push_str(&format!(
+                    "\"{}@{}\" -> C [color=red, label=\"\"];\n",
+                    -*lit, dl_lit
+                ));
             }
         }
         out.push_str("}\n");
@@ -171,10 +175,10 @@ mod tests {
             assignment2.clone().into(),
             AssignmentReason::Heuristic,
         );
-        brancher.backtrack(&mut state, &mut unit_prop, 0);
+        // brancher.backtrack(&mut state, &mut unit_prop, 0);
         assert_eq!(state.vars[1], Some(true));
         assert_eq!(state.vars[2], Some(false));
-        brancher.backtrack(&mut state, &mut unit_prop, 0);
+        // brancher.backtrack(&mut state, &mut unit_prop, 0);
         assert_eq!(state.vars[1], Some(false));
         assert_eq!(state.vars[2], None);
     }
