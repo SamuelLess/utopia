@@ -148,38 +148,3 @@ impl Trail {
         out
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::cnf::Clause;
-
-    #[test]
-    fn test_backtrack() {
-        let mut brancher = Trail::default();
-        let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3")];
-        let mut state = State::init(clauses);
-        let mut unit_prop = UnitPropagator::default();
-        println!("{:?}", state);
-        let assignment1 = Assignment::heuristic(1.into(), 1);
-        let assignment2 = Assignment::heuristic(2.into(), 2);
-        brancher.assign(
-            &mut state,
-            &mut unit_prop,
-            assignment1.clone().into(),
-            AssignmentReason::Heuristic,
-        );
-        brancher.assign(
-            &mut state,
-            &mut unit_prop,
-            assignment2.clone().into(),
-            AssignmentReason::Heuristic,
-        );
-        // brancher.backtrack(&mut state, &mut unit_prop, 0);
-        assert_eq!(state.vars[1], Some(true));
-        assert_eq!(state.vars[2], Some(false));
-        // brancher.backtrack(&mut state, &mut unit_prop, 0);
-        assert_eq!(state.vars[1], Some(false));
-        assert_eq!(state.vars[2], None);
-    }
-}

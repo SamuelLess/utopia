@@ -58,6 +58,7 @@ impl ClauseLearner {
             }
             current_literal = Some(trail.assignment_stack[trail_position].literal);
 
+            seen.remove(&current_literal.unwrap().id());
             count -= 1;
             if count == 0 {
                 break;
@@ -70,7 +71,7 @@ impl ClauseLearner {
             }
         }
 
-        learned_clause.push(current_literal.unwrap());
+        learned_clause.push(-current_literal.unwrap());
 
         // learned clause is UIP
         assert_eq!(
@@ -214,7 +215,6 @@ mod tests {
             Clause::from("7 8"),      // 5
         ];
         let mut state = State::init(cnf.clone());
-        let mut clause_learner = ClauseLearner::default();
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::default();
         let mut clause_learner = ClauseLearner::default();

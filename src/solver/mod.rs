@@ -56,11 +56,6 @@ impl Solver {
 
             if let Some(conflict_clause_id) = self.state.conflict_clause_id {
                 if trail.decision_level == 0 {
-                    for clause in self.state.clauses.clone() {
-                        println!("{:?}", clause.literals);
-                    }
-
-                    print!("UNSAT");
                     break;
                 }
                 // find conflict clause
