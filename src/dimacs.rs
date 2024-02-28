@@ -36,7 +36,7 @@ pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
         return Err("Invalid DIMACS header".to_string());
     }
     let num_vars = header[2].parse::<usize>().map_err(|err| err.to_string())?;
-    let _num_clauses = header[3].parse::<usize>().map_err(|err| err.to_string())?;
+    let num_clauses = header[3].parse::<usize>().map_err(|err| err.to_string())?;
 
     let mut clauses: Vec<Vec<Literal>> = file_content
         .iter()
@@ -57,14 +57,13 @@ pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
     }
     clauses.pop();
 
-    /*
     if clauses.len() != num_clauses {
         return Err(format!(
             "Expected {} clauses, got {}",
             num_clauses,
             clauses.len()
         ));
-    }*/
+    }
 
     // Normalize CNF: sort clauses and remove duplicate literals
     for clause in clauses.iter_mut() {

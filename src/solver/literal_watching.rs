@@ -8,7 +8,7 @@ pub struct VarWatch {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WatchUpdate {
-    Successful([Literal; 2]),
+    FoundNewWatch,
     Unit(Literal),
     Conflict,
 }
@@ -31,36 +31,15 @@ impl LiteralWatcher {
         }
     }
 
-    pub fn affected_clauses(&self, lit: Literal) -> &[ClauseId] {
+    pub fn affected_clauses(&mut self, lit: Literal) -> &mut Vec<ClauseId> {
         if lit.positive() {
-            &self.var_watches[lit.id()].neg
+            &mut self.var_watches[lit.id()].neg
         } else {
-            &self.var_watches[lit.id()].pos
+            &mut self.var_watches[lit.id()].pos
         }
     }
 
-    /// TODO: Find a more efficient way to update watched literals.
-    /// This 'batched updating' is done to not copy the affected clauses to iterate.
-    pub fn update_watches(&mut self, updates: &[(ClauseId, [Literal; 2], [Literal; 2])]) {
-        for (clause_id, before, after) in updates {
-            // remove clause id form before update
-            self.remove_watch(before[0], *clause_id);
-            self.remove_watch(before[1], *clause_id);
-            // add clause_id to from after update
-            self.add_watch(after[0], *clause_id);
-            self.add_watch(after[1], *clause_id);
-        }
-    }
-
-    fn remove_watch(&mut self, lit: Literal, clause_id: ClauseId) {
-        if lit.positive() {
-            self.var_watches[lit.id()].pos.retain(|&x| x != clause_id);
-        } else {
-            self.var_watches[lit.id()].neg.retain(|&x| x != clause_id);
-        }
-    }
-
-    fn add_watch(&mut self, lit: Literal, clause_id: ClauseId) {
+    pub fn add_watch(&mut self, lit: Literal, clause_id: ClauseId) {
         if lit.positive() {
             self.var_watches[lit.id()].pos.push(clause_id);
         } else {
@@ -69,22 +48,45 @@ impl LiteralWatcher {
     }
 
     /// Sets watched literal to two non-false literals if possible
-    /// Otherwise the clause is unit and the unit literal is returned as well
-    /// Returns the new watches and whether the clause is unit
-    pub fn update_clause(clause: &mut Clause, vars: &[Option<bool>]) -> WatchUpdate {
-        let possible_watches = clause.possible_watches_idx(vars);
-        if possible_watches.len() >= 2 {
-            clause.watches = [possible_watches[0], possible_watches[1]];
-            return WatchUpdate::Successful(clause.watches());
+    pub fn update_clause(
+        &mut self,
+        clause: &mut Clause,
+        clause_id: ClauseId,
+        old_literal: Literal,
+        vars: &[Option<bool>],
+    ) -> WatchUpdate {
+        let mut watched_literals = clause.watches();
+        // ensure that the first watch is the newly false one
+        if watched_literals[0].id() != old_literal.id() {
+            clause.watches.swap(0, 1);
+            watched_literals.swap(0, 1);
         }
-        if possible_watches.len() == 1 {
-            let unit_idx = possible_watches[0];
-            let update_idx = if clause.watches[0] == unit_idx { 0 } else { 1 };
-            clause.watches[update_idx] = unit_idx;
-            return WatchUpdate::Unit(clause.literals[unit_idx]);
+        assert_eq!(watched_literals[0], old_literal);
+
+        assert!(old_literal.is_false(vars));
+
+        if watched_literals[1].is_false(vars) {
+            self.add_watch(old_literal, clause_id);
+            return WatchUpdate::Conflict;
         }
-        WatchUpdate::Conflict
+
+        for i in 0..clause.literals.len() {
+            if i == clause.watches[1] {
+                continue;
+            }
+            if clause.literals[i].non_false(vars) {
+                // Found new valid watch
+                clause.watches[0] = i;
+                self.add_watch(clause.literals[i], clause_id);
+                return WatchUpdate::FoundNewWatch;
+            }
+        }
+        // As the entire watchlist of this literal is getting cleared, we need to re-add it
+        // if it's a unit and we don't actually change the literal
+        self.add_watch(old_literal, clause_id);
+        WatchUpdate::Unit(clause.literals[clause.watches[1]])
     }
+
     fn create_watches(clauses: &[Clause], num_vars: usize) -> Vec<VarWatch> {
         let mut watches = vec![VarWatch::default(); num_vars + 1];
         for (clause_id, clause) in clauses.iter().enumerate() {

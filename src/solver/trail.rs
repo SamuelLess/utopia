@@ -95,6 +95,7 @@ impl Trail {
             self.assignment_stack.pop();
             state.unassign(assignment.literal);
         }
+
         self.decision_level = assertion_level;
         state.conflict_clause_id = None;
     }

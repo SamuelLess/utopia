@@ -48,6 +48,22 @@ impl Literal {
     pub fn id_val(&self) -> (VarId, bool) {
         (self.id(), self.positive())
     }
+
+    pub fn is_true(&self, vars: &[Option<bool>]) -> bool {
+        vars[self.id()] == Some(self.positive())
+    }
+
+    pub fn is_false(&self, vars: &[Option<bool>]) -> bool {
+        vars[self.id()] == Some(self.negative())
+    }
+
+    pub fn non_false(&self, vars: &[Option<bool>]) -> bool {
+        vars[self.id()] != Some(self.negative())
+    }
+
+    pub fn is_free(&self, vars: &[Option<bool>]) -> bool {
+        vars[self.id()].is_none()
+    }
 }
 
 impl FromStr for Literal {
@@ -100,8 +116,16 @@ pub struct Clause {
 }
 
 impl Clause {
+    pub fn new(literals: Vec<Literal>, watches: [usize; 2]) -> Self {
+        Clause { literals, watches }
+    }
+
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {
-        self.literals
+        self.literals.iter().any(|lit| lit.is_true(vars))
+    }
+
+    pub fn is_satisfied_by_watches(&self, vars: &[Option<bool>]) -> bool {
+        self.watches()
             .iter()
             .any(|lit| vars[lit.id()] == Some(lit.positive()))
     }

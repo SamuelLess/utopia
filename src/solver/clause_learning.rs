@@ -12,7 +12,7 @@ impl ClauseLearner {
             .assignment_stack
             .iter()
             .find(|a| a.literal.id() == lit.id())
-            .unwrap()
+            .expect("variable should be on the trail")
             .decision_level
     }
 
@@ -71,8 +71,18 @@ impl ClauseLearner {
             }
         }
 
+        // add the UIP
         learned_clause.push(-current_literal.unwrap());
 
+        // The UIP has to be one of the watched literals. As the watches are initialized as 0 and 1
+        // we swap the UIP into the first position.
+
+        let learned_clause_len = learned_clause.len();
+        learned_clause.swap(0, learned_clause_len - 1);
+        assert_eq!(
+            Self::get_decision_level(learned_clause[0], trail),
+            trail.decision_level
+        );
         // learned clause is UIP
         assert_eq!(
             learned_clause
@@ -98,6 +108,17 @@ impl ClauseLearner {
             .rev()
             .nth(1)
             .unwrap_or(0);
+
+        // The second watch has to be the asserting literal, otherwise the watched literals will
+        // become invalid after backtracking. In unit clauses, there is no asserting literal and
+        // this doesn't apply.
+        if let Some(assert_lit_idx) = learned_clause
+            .iter()
+            .position(|lit| Self::get_decision_level(*lit, trail) == assertion_level)
+        {
+            learned_clause.swap(1, assert_lit_idx);
+        }
+
         assert!(assertion_level < trail.decision_level);
         (Clause::from(learned_clause), assertion_level)
     }
