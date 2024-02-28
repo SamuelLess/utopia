@@ -148,7 +148,7 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
             #lims(x=(0,171)) +
             #scale_y_log10(limits=(0.1, 500)) +
             scale_y_log10() +
-            labs(x='Solved instances', y='CPU time (s)', color="Solver",  shape="Solver",  title='Arcane cumulative runtime') +
+            labs(x='Solved instances', y='CPU time (s)', color="Solver",  shape="Solver",  title='Utopia runtime') +
             theme_bw() +
             theme(legend_position='bottom')
             )

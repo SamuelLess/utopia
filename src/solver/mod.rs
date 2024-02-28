@@ -2,6 +2,7 @@ mod clause_learning;
 pub mod config;
 pub mod heuristic;
 mod literal_watching;
+mod proof_logger;
 pub mod state;
 pub mod statistics;
 pub mod trail;
@@ -11,7 +12,7 @@ use crate::cnf::{Clause, Solution, VarId};
 use crate::preprocessor::Preprocessor;
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
-use crate::solver::heuristic::HeuristicType;
+use crate::solver::proof_logger::ProofLogger;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::trail::{AssignmentReason, Trail};
@@ -24,32 +25,42 @@ pub struct Solver {
     state: State,
     preprocessor: Preprocessor,
     clause_learner: ClauseLearner,
+    proof_logger: ProofLogger,
 }
 
 impl Solver {
-    pub fn new(clauses: Vec<Clause>, heuristic_type: HeuristicType) -> Self {
+    pub fn new(clauses: Vec<Clause>, config: Config) -> Self {
         let cnf = clauses;
-        let config = Config::new(heuristic_type);
         let preprocessor = Preprocessor::default();
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            config,
             cnf,
             state: State::init(vec![]),
             preprocessor,
             clause_learner,
+            proof_logger: ProofLogger::new(config.proof_file.is_some()),
+            config,
         }
     }
 
     pub fn solve(&mut self) -> Solution {
         self.state.stats.start_timing();
-        if let Some(solution) = self.preprocess() {
-            return solution;
+
+        if self.config.proof_file.is_none() {
+            if let Some(solution) = self.preprocess() {
+                return solution;
+            }
         }
+
+        // The CNF could have been modified by the preprocessor
+        self.state = State::init(self.cnf.clone());
+
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::default();
+
+        self.enqueue_initial_units(&mut unit_propagator);
 
         loop {
             unit_propagator.propagate(&mut self.state, &mut trail);
@@ -65,6 +76,7 @@ impl Solver {
                     conflict_clause_id,
                 );
 
+                self.proof_logger.log(&new_clause);
                 let new_clause_id = self.state.add_clause(new_clause);
 
                 heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
@@ -90,6 +102,10 @@ impl Solver {
             );
         }
         self.state.stats.stop_timing();
+        if let Some(proof_file) = self.config.proof_file.as_ref() {
+            self.proof_logger.write_to_file(proof_file);
+        }
+
         None
     }
 
@@ -104,8 +120,15 @@ impl Solver {
         if self.cnf.is_empty() {
             return Some(Some(self.preprocessor.map_solution(HashMap::new())));
         }
-        self.state = State::init(self.cnf.clone());
         None
+    }
+
+    fn enqueue_initial_units(&self, unit_propagator: &mut UnitPropagator) {
+        self.cnf
+            .iter()
+            .enumerate()
+            .filter(|(_, clause)| clause.literals.len() == 1)
+            .for_each(|(clause_id, clause)| unit_propagator.enqueue(clause.literals[0], clause_id));
     }
 
     fn get_solution(&self) -> HashMap<VarId, bool> {

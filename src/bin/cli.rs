@@ -2,6 +2,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use utopia::cnf::{check_assignment, Clause, VarId};
 use utopia::dimacs::{clauses_from_dimacs_file, solution_to_dimacs};
+use utopia::solver::config::Config;
 use utopia::solver::heuristic::HeuristicType;
 use utopia::solver::statistics::StateStatistics;
 use utopia::solver::Solver;
@@ -16,6 +17,10 @@ struct Args {
     #[arg(short, long, global = true, help = "Output path for solution")]
     out: Option<String>,
 
+    /// Proof file
+    #[arg(short, long, help = "Path to put proof file")]
+    proof: Option<String>,
+
     #[arg(long, default_value = "decay")]
     heuristic: HeuristicType,
 }
@@ -25,7 +30,10 @@ fn main() {
 
     let cnf = clauses_from_dimacs_file(&args.file).unwrap();
 
-    let mut solver = Solver::new(cnf.clone(), args.heuristic.clone());
+    let mut solver = Solver::new(
+        cnf.clone(),
+        Config::new(args.heuristic.clone(), args.proof.clone()),
+    );
 
     let solution = solver.solve();
 
@@ -41,15 +49,18 @@ fn create_output(
 ) -> String {
     let mut output = format!("c {}", BANNER);
     output.push_str(format!("\nFile\n{}\n", args.file).as_str());
-    output.push_str(format!("\n{}", stats.to_table()).as_str());
+    output.push_str(format!("\n{}\n", stats.to_table()).as_str());
     // verify solution
     if let Some(solution) = solution.clone() {
         if check_assignment(cnf.clone(), solution) {
-            output.push_str("Solution has been verified and is correct");
+            output.push_str("Solution has been verified and is correct\n");
         } else {
-            output.push_str("WRONG SOLUTION");
+            output.push_str("WRONG SOLUTION\n");
         }
+    } else if let Some(out) = args.proof.clone() {
+        output.push_str(format!("Proof has been written to:\n {}\n", out).as_str());
     }
+
     output = output.replace('\n', "\nc ");
     output.push_str(format!("\n{}", solution_to_dimacs(solution.clone())).as_str());
     output

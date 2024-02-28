@@ -10,12 +10,12 @@ pub struct UnitPropagator {
 }
 
 impl UnitPropagator {
-    pub fn enqueue(&mut self, lit: Literal, clause_id: ClauseId) {
+    pub fn enqueue(&mut self, lit: Literal, reason: ClauseId) {
         // check if the literal is already in the queue
         if self.units.contains(&lit) {
             return;
         }
-        self.unit_queue.push_back((lit, clause_id));
+        self.unit_queue.push_back((lit, reason));
         self.units.push(lit);
     }
 
