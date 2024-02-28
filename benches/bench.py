@@ -8,13 +8,11 @@ from typing import List
 
 import pandas as pd
 import tqdm
-
+from matplotlib import pyplot as plt
 from plotnine import *
 
-from matplotlib import pyplot as plt
 plt.rcParams['text.usetex'] = True
 plt.rcParams["font.family"] = "serif"
-
 
 TIMEOUT = 1
 FILENAME = f"results-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
@@ -40,6 +38,7 @@ SOLVERS = {
     'arcane-clause-len': [ARCANE_BIN_PATH, "--heuristic", "clause-len"],
     'arcane-static-occ': [ARCANE_BIN_PATH, "--heuristic", "static-occ"],
     'utopia': [UTOPIA_BIN_PATH],
+    'utopia-proof': [UTOPIA_BIN_PATH, "--proof", "out.proof"],
     'cadical': ['cadical'],
     'minisat': ['minisat'],
     'z3': ['z3'],
@@ -61,7 +60,7 @@ def find_files(path="../testfiles/", filters=[]):
             if skip:
                 continue
             cnf_files.append(full_path)
-        #random.shuffle(cnf_files)
+        # random.shuffle(cnf_files)
     return cnf_files
 
 
@@ -129,9 +128,9 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     df = df[df[key] != 'WRONG RESULT']
     df[key] = pd.to_numeric(df[key])
     df = df.sort_values(by=['solver', key])
-    #df = df.sort_values(by=['solver', 'file'])
+    # df = df.sort_values(by=['solver', 'file'])
     df[f'cumulative_{key}'] = df.groupby('solver')[key].cumsum()
-    #df['rank'] = df.groupby('solver')[f'cumulative_{key}'].rank(method='dense')
+    # df['rank'] = df.groupby('solver')[f'cumulative_{key}'].rank(method='dense')
     df['rank'] = df.groupby('solver')[f'{key}'].rank(method='dense')
 
     # only take solvers that are in the solvers list
@@ -145,17 +144,18 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     plot = (ggplot(df, aes(x='rank', y=f'{key}', color='solver', shape='solver')) +
             geom_point(size=0.75) +
             geom_line() +
-            #lims(x=(0,171)) +
-            #scale_y_log10(limits=(0.1, 500)) +
+            # lims(x=(0,171)) +
+            # scale_y_log10(limits=(0.1, 500)) +
             scale_y_log10() +
-            labs(x='Solved instances', y='CPU time (s)', color="Solver",  shape="Solver",  title='Utopia runtime') +
+            labs(x='Solved instances', y='CPU time (s)', color="Solver", shape="Solver", title='Utopia runtime') +
             theme_bw() +
             theme(legend_position='bottom')
             )
     # change colormap
-    plot = plot + scale_color_manual(values=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"])
+    plot = plot + scale_color_manual(
+        values=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"])
 
-    plot.save(f'{FILENAME}.svg')
+    plot.save(f'{FILENAME}.svg', verbose=False)
     if show:
         plot.draw(show=show)
 
@@ -167,7 +167,8 @@ def create_plot_occasionally(data, solvers):
     global last_intermediate_plot_creation
     if time() - last_intermediate_plot_creation > 30:
         last_intermediate_plot_creation = time()
-        create_plot(data, show=False, solvers=solvers)
+        if len(data) > 2:
+            create_plot(data, show=False, solvers=solvers)
 
 
 def main():
@@ -182,7 +183,7 @@ def main():
             print(f"Unknown solver: {solver}, available solvers: {SOLVERS.keys()}")
             return
 
-    #cnf_files = find_files()
+    # cnf_files = find_files()
     cnf_files = find_files(filters=['satlib'])
     data = read_or_create_checkpoint()
     for solver in tqdm.tqdm(solvers):

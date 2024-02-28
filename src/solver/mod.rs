@@ -17,6 +17,7 @@ use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::trail::{AssignmentReason, Trail};
 use crate::solver::unit_propagation::UnitPropagator;
+use itertools::Itertools;
 use std::collections::HashMap;
 
 pub struct Solver {
@@ -51,6 +52,10 @@ impl Solver {
             if let Some(solution) = self.preprocess() {
                 return solution;
             }
+        }
+
+        if self.is_trivially_unsat() {
+            return None;
         }
 
         // The CNF could have been modified by the preprocessor
@@ -88,6 +93,7 @@ impl Solver {
                 );
                 continue;
             }
+
             if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
@@ -123,16 +129,38 @@ impl Solver {
         None
     }
 
+    fn is_trivially_unsat(&self) -> bool {
+        // contains empty clause
+        if self.cnf.iter().any(|clause| clause.literals.is_empty()) {
+            return true;
+        }
+
+        // contains a unit clause and its negation
+        let units = self
+            .cnf
+            .iter()
+            .filter(|clause| clause.literals.len() == 1)
+            .map(|clause| clause.literals[0]);
+        units.clone().count() != units.clone().map(|x| x.id()).unique().count()
+    }
+
     fn enqueue_initial_units(&self, unit_propagator: &mut UnitPropagator) {
         self.cnf
             .iter()
             .enumerate()
             .filter(|(_, clause)| clause.literals.len() == 1)
-            .for_each(|(clause_id, clause)| unit_propagator.enqueue(clause.literals[0], clause_id));
+            .for_each(|(clause_id, clause)| {
+                unit_propagator.enqueue(clause.literals[0], clause_id);
+            })
     }
 
     fn get_solution(&self) -> HashMap<VarId, bool> {
-        self.preprocessor.map_solution(self.state.get_assignment())
+        if self.config.proof_file.is_none() {
+            self.preprocessor.map_solution(self.state.get_assignment())
+        } else {
+            // No need for backmapping if proof is enabled (and preprocessing disabled)
+            self.state.get_assignment()
+        }
     }
 
     pub fn stats(&self) -> &StateStatistics {
