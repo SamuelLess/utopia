@@ -46,11 +46,11 @@ impl State {
         let affected_clauses = std::mem::take(self.literal_watcher.affected_clauses(lit));
         for clause_id in affected_clauses {
             // skip rest of clauses if conflict is detected
-            if self.conflict_clause_id.is_some(){
+            if self.conflict_clause_id.is_some() {
                 self.literal_watcher.add_watch(-lit, clause_id);
                 continue;
             }
-            
+
             let clause = &mut self.clauses[clause_id];
             // check the blocking literal first
             if clause.check_blocking_literal(&self.vars) {
@@ -67,7 +67,7 @@ impl State {
                     self.literal_watcher.add_watch(-lit, clause_id);
                 }
                 WatchUpdate::Unit(unit) => {
-                   unit_propagator.enqueue(unit, clause_id);
+                    unit_propagator.enqueue(unit, clause_id);
                 }
                 WatchUpdate::Conflict => {
                     self.conflict_clause_id = Some(clause_id);
@@ -75,9 +75,12 @@ impl State {
                 }
             }
         }
-        
+
         // all conflicts have been detected
-        debug_assert_eq!(self.conflict_clause_id.is_some(), self.clauses.iter().any(|c| c.is_conflict(&self.vars)));
+        debug_assert_eq!(
+            self.conflict_clause_id.is_some(),
+            self.clauses.iter().any(|c| c.is_conflict(&self.vars))
+        );
     }
 
     pub fn unassign(&mut self, lit: Literal) {
@@ -125,7 +128,7 @@ impl State {
             if clause.literals.len() == 1 {
                 continue;
             }
-            let watches =  &clause.literals[0..2];
+            let watches = &clause.literals[0..2];
             let zero = self.vars[watches[0].id()].is_none()
                 || self.vars[watches[0].id()] == Some(watches[0].positive());
             let one = self.vars[watches[1].id()].is_none()

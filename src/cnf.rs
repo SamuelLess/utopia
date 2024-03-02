@@ -64,12 +64,13 @@ impl Literal {
     pub fn is_free(&self, vars: &[Option<bool>]) -> bool {
         vars[self.id()].is_none()
     }
-    
+
     pub fn value(&self, vars: &[Option<bool>]) -> Option<bool> {
         if self.is_free(vars) {
             None
         } else {
-            Some(self.is_true(vars))        }
+            Some(self.is_true(vars))
+        }
     }
 }
 
@@ -126,22 +127,22 @@ impl Clause {
     pub fn new(literals: Vec<Literal>) -> Self {
         Clause {
             blocking_literal: literals[0],
-            literals
+            literals,
         }
     }
 
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {
         self.literals.iter().any(|lit| lit.is_true(vars))
     }
-    
+
     pub fn is_conflict(&self, vars: &[Option<bool>]) -> bool {
-        self.literals.iter().all(|lit|lit.is_false(vars))
+        self.literals.iter().all(|lit| lit.is_false(vars))
     }
-    
+
     pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {
-         self.blocking_literal.is_true(vars)
+        self.blocking_literal.is_true(vars)
     }
-    
+
     // TODO: find a more performant way to do this
     pub fn resolution(self, other: Self) -> Self {
         let mut new_literals = self.literals.clone();
@@ -162,7 +163,7 @@ impl From<Vec<Literal>> for Clause {
     fn from(literals: Vec<Literal>) -> Self {
         Clause {
             blocking_literal: *literals.first().unwrap_or(&Literal::new(0)),
-            literals
+            literals,
         }
     }
 }

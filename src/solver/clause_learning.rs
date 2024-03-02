@@ -7,15 +7,6 @@ use std::collections::HashSet;
 pub struct ClauseLearner {}
 
 impl ClauseLearner {
-    pub fn get_decision_level(lit: Literal, trail: &Trail) -> usize {
-        trail
-            .assignment_stack
-            .iter()
-            .find(|a| a.literal.id() == lit.id())
-            .expect("variable should be on the trail")
-            .decision_level
-    }
-
     /// Assumes that the current state is in conflict
     pub fn analyse_conflict(
         &mut self,
@@ -40,11 +31,11 @@ impl ClauseLearner {
                     continue; // current literal is not part of the reason clause
                 }
 
-                if !seen.contains(&lit.id()) && Self::get_decision_level(lit, trail) > 0 {
+                if !seen.contains(&lit.id()) && trail.var_decision_level[lit.id()] > 0 {
                     seen.insert(lit.id());
 
-                    assert!(Self::get_decision_level(lit, trail) <= trail.decision_level);
-                    if Self::get_decision_level(lit, trail) == trail.decision_level {
+                    assert!(trail.var_decision_level[lit.id()] <= trail.decision_level);
+                    if trail.var_decision_level[lit.id()] == trail.decision_level {
                         count += 1;
                     } else {
                         learned_clause.push(lit);
@@ -80,14 +71,14 @@ impl ClauseLearner {
         let learned_clause_len = learned_clause.len();
         learned_clause.swap(0, learned_clause_len - 1);
         assert_eq!(
-            Self::get_decision_level(learned_clause[0], trail),
+            trail.var_decision_level[learned_clause[0].id()],
             trail.decision_level
         );
         // learned clause is UIP
         assert_eq!(
             learned_clause
                 .iter()
-                .filter(|lit| Self::get_decision_level(**lit, trail) == trail.decision_level)
+                .filter(|lit| trail.var_decision_level[lit.id()] == trail.decision_level)
                 .count(),
             1
         );
@@ -114,7 +105,7 @@ impl ClauseLearner {
         // this doesn't apply.
         if let Some(assert_lit_idx) = learned_clause
             .iter()
-            .position(|lit| Self::get_decision_level(*lit, trail) == assertion_level)
+            .position(|lit| trail.var_decision_level[lit.id()] == assertion_level)
         {
             learned_clause.swap(1, assert_lit_idx);
         }
@@ -148,7 +139,7 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut clause_learner = ClauseLearner::default();
-        let mut brancher = Trail::default();
+        let mut brancher = Trail::new(13);
         let mut unit_propagator = UnitPropagator::default();
 
         let assigments = vec![-9, -10, 12, 1];
@@ -200,7 +191,7 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut clause_learner = ClauseLearner::default();
-        let mut trail = Trail::default();
+        let mut trail = Trail::new(state.num_vars);
         let mut unit_propagator = UnitPropagator::default();
         let assignments = vec![1, 2, 3, 4];
         for assignment in assignments {
@@ -237,7 +228,7 @@ mod tests {
         ];
         let mut state = State::init(cnf.clone());
         let mut unit_propagator = UnitPropagator::default();
-        let mut trail = Trail::default();
+        let mut trail = Trail::new(state.num_vars);
         let mut clause_learner = ClauseLearner::default();
         let assignments = vec![1, 2, 4];
         for assignment in assignments {

@@ -63,7 +63,7 @@ impl Solver {
 
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut unit_propagator = UnitPropagator::default();
-        let mut trail = Trail::default();
+        let mut trail = Trail::new(self.state.num_vars);
 
         self.enqueue_initial_units(&mut unit_propagator);
 

@@ -1,5 +1,4 @@
 use crate::cnf::{ClauseId, Literal};
-use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::state::State;
 use crate::solver::unit_propagation::UnitPropagator;
 
@@ -35,13 +34,21 @@ pub enum AssignmentReason {
     Forced(ClauseId),
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Trail {
     pub assignment_stack: Vec<Assignment>,
+    pub var_decision_level: Vec<usize>,
     pub decision_level: usize,
 }
 
 impl Trail {
+    pub fn new(num_vars: usize) -> Trail {
+        Trail {
+            assignment_stack: vec![],
+            var_decision_level: vec![0; num_vars + 1],
+            decision_level: 0,
+        }
+    }
     pub fn assign(
         &mut self,
         state: &mut State,
@@ -59,7 +66,10 @@ impl Trail {
             reason,
             decision_level: self.decision_level,
         };
+
         self.push_assignment(assignment.clone());
+        self.var_decision_level[literal.id()] = self.decision_level;
+
         state.assign(assignment.into(), unit_propagator);
     }
 
@@ -126,9 +136,8 @@ impl Trail {
                     if lit == &assignment.literal {
                         continue;
                     }
-                    let dl_lit = ClauseLearner::get_decision_level(*lit, &self);
-                    let dl_re =
-                        ClauseLearner::get_decision_level(assignment.literal.clone(), &self);
+                    let dl_lit = self.var_decision_level[lit.id()];
+                    let dl_re = self.var_decision_level[assignment.literal.id()];
                     out.push_str(&format!(
                         "\"{}@{}\" -> \"{}@{}\" [label=\"{}\"];\n",
                         -*lit, dl_lit, assignment.literal, dl_re, reason,
@@ -138,7 +147,7 @@ impl Trail {
         }
         if let Some(conflict_clause_id) = &state.conflict_clause_id {
             for lit in &state.clauses[*conflict_clause_id].literals {
-                let dl_lit = ClauseLearner::get_decision_level(*lit, &self);
+                let dl_lit = self.var_decision_level[lit.id()];
                 out.push_str(&format!(
                     "\"{}@{}\" -> C [color=red, label=\"\"];\n",
                     -*lit, dl_lit

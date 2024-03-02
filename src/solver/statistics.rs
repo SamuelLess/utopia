@@ -67,14 +67,14 @@ impl StateStatistics {
         table.add_row(row!["Assignments", self.num_assignments]);
         table.add_row(row!["Conflicts", self.num_conflicts]);
         table.add_row(row![
-            "Correct Decisions",
-            if self.num_decisions as i32 - self.num_backtracks as i32 > 0 {
-                self.num_decisions - self.num_backtracks
-            } else {
-                0
-            }
+            "Assignments per second",
+            (self.num_assignments as f32 / self.time.as_secs_f32()) as u32
         ]);
-        table.add_row(row!["Propagations", self.num_propagations]);
+        table.add_row(row![
+            "Conflicts per second",
+            (self.num_conflicts as f32 / self.time.as_secs_f32()) as u32
+        ]);
+
         table.add_row(row![
             "Time (approx.)",
             format!("{:.3}s", self.time.as_secs_f32())
