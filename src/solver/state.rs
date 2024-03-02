@@ -67,7 +67,7 @@ impl State {
                     self.literal_watcher.add_watch(-lit, clause_id);
                 }
                 WatchUpdate::Unit(unit) => {
-                    unit_propagator.enqueue(unit, clause_id);
+                   unit_propagator.enqueue(unit, clause_id);
                 }
                 WatchUpdate::Conflict => {
                     self.conflict_clause_id = Some(clause_id);
@@ -75,6 +75,9 @@ impl State {
                 }
             }
         }
+        
+        // all conflicts have been detected
+        debug_assert_eq!(self.conflict_clause_id.is_some(), self.clauses.iter().any(|c| c.is_conflict(&self.vars)));
     }
 
     pub fn unassign(&mut self, lit: Literal) {
@@ -122,9 +125,7 @@ impl State {
             if clause.literals.len() == 1 {
                 continue;
             }
-            let watches = clause.watches();
-            assert_eq!(watches[0].id(), clause.literals[clause.watches[0]].id());
-            assert_eq!(watches[1].id(), clause.literals[clause.watches[1]].id());
+            let watches =  &clause.literals[0..2];
             let zero = self.vars[watches[0].id()].is_none()
                 || self.vars[watches[0].id()] == Some(watches[0].positive());
             let one = self.vars[watches[1].id()].is_none()
@@ -136,10 +137,10 @@ impl State {
             if clause.literals.len() == 1 {
                 continue;
             }
-            for lit in clause.watches() {
+            for lit in &clause.literals[0..2] {
                 assert!(self
                     .literal_watcher
-                    .affected_clauses(-lit)
+                    .affected_clauses(-*lit)
                     .contains(&clause_id));
             }
         }

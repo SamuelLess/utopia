@@ -119,16 +119,14 @@ pub type ClauseId = usize;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
     pub literals: Vec<Literal>,
-    pub watches: [usize; 2],
     pub blocking_literal: Literal,
 }
 
 impl Clause {
-    pub fn new(literals: Vec<Literal>, watches: [usize; 2]) -> Self {
+    pub fn new(literals: Vec<Literal>) -> Self {
         Clause {
             blocking_literal: literals[0],
-            literals,
-            watches,
+            literals
         }
     }
 
@@ -136,27 +134,14 @@ impl Clause {
         self.literals.iter().any(|lit| lit.is_true(vars))
     }
     
+    pub fn is_conflict(&self, vars: &[Option<bool>]) -> bool {
+        self.literals.iter().all(|lit|lit.is_false(vars))
+    }
+    
     pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {
          self.blocking_literal.is_true(vars)
     }
-
-    pub fn watches(&self) -> [Literal; 2] {
-        [
-            self.literals[self.watches[0]],
-            self.literals[self.watches[1]],
-        ]
-    }
-
-    /// Returns all indices with non-false entries.
-    pub fn possible_watches_idx(&self, vars: &[Option<bool>]) -> Vec<usize> {
-        self.literals
-            .iter()
-            .enumerate()
-            .filter(|(_, lit)| vars[lit.id()] != Some(!lit.positive()))
-            .map(|(i, _)| i)
-            .collect()
-    }
-
+    
     // TODO: find a more performant way to do this
     pub fn resolution(self, other: Self) -> Self {
         let mut new_literals = self.literals.clone();
@@ -177,8 +162,7 @@ impl From<Vec<Literal>> for Clause {
     fn from(literals: Vec<Literal>) -> Self {
         Clause {
             blocking_literal: *literals.first().unwrap_or(&Literal::new(0)),
-            literals,
-            watches: [0, 1],
+            literals
         }
     }
 }
