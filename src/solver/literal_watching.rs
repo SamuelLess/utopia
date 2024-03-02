@@ -11,6 +11,7 @@ pub enum WatchUpdate {
     FoundNewWatch,
     Unit(Literal),
     Conflict,
+    Satisfied,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +56,8 @@ impl LiteralWatcher {
         old_literal: Literal,
         vars: &[Option<bool>],
     ) -> WatchUpdate {
+       
+        
         let mut watched_literals = clause.watches();
         // ensure that the first watch is the newly false one
         if watched_literals[0].id() != old_literal.id() {
@@ -71,10 +74,15 @@ impl LiteralWatcher {
         }
 
         for i in 0..clause.literals.len() {
+            if clause.literals[i].is_true(vars) {
+                clause.blocking_literal = clause.literals[i];
+                return WatchUpdate::Satisfied;
+            }
+            
             if i == clause.watches[1] {
                 continue;
             }
-            if clause.literals[i].non_false(vars) {
+            if clause.literals[i].is_free(vars) {
                 // Found new valid watch
                 clause.watches[0] = i;
                 self.add_watch(clause.literals[i], clause_id);

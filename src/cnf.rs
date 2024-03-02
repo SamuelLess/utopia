@@ -64,6 +64,13 @@ impl Literal {
     pub fn is_free(&self, vars: &[Option<bool>]) -> bool {
         vars[self.id()].is_none()
     }
+    
+    pub fn value(&self, vars: &[Option<bool>]) -> Option<bool> {
+        if self.is_free(vars) {
+            None
+        } else {
+            Some(self.is_true(vars))        }
+    }
 }
 
 impl FromStr for Literal {
@@ -113,21 +120,24 @@ pub type ClauseId = usize;
 pub struct Clause {
     pub literals: Vec<Literal>,
     pub watches: [usize; 2],
+    pub blocking_literal: Literal,
 }
 
 impl Clause {
     pub fn new(literals: Vec<Literal>, watches: [usize; 2]) -> Self {
-        Clause { literals, watches }
+        Clause {
+            blocking_literal: literals[0],
+            literals,
+            watches,
+        }
     }
 
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {
         self.literals.iter().any(|lit| lit.is_true(vars))
     }
-
-    pub fn is_satisfied_by_watches(&self, vars: &[Option<bool>]) -> bool {
-        self.watches()
-            .iter()
-            .any(|lit| vars[lit.id()] == Some(lit.positive()))
+    
+    pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {
+         self.blocking_literal.is_true(vars)
     }
 
     pub fn watches(&self) -> [Literal; 2] {
@@ -166,6 +176,7 @@ impl Clause {
 impl From<Vec<Literal>> for Clause {
     fn from(literals: Vec<Literal>) -> Self {
         Clause {
+            blocking_literal: *literals.first().unwrap_or(&Literal::new(0)),
             literals,
             watches: [0, 1],
         }

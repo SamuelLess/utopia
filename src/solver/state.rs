@@ -45,10 +45,15 @@ impl State {
 
         let affected_clauses = std::mem::take(self.literal_watcher.affected_clauses(lit));
         for clause_id in affected_clauses {
+            // skip rest of clauses if conflict is detected
+            if self.conflict_clause_id.is_some(){
+                self.literal_watcher.add_watch(-lit, clause_id);
+                continue;
+            }
+            
             let clause = &mut self.clauses[clause_id];
-            // TODO: do this by using update clause to find if clause is satisfied
-            // set one watch to the true literal
-            if clause.is_satisfied(&self.vars) || self.conflict_clause_id.is_some() {
+            // check the blocking literal first
+            if clause.check_blocking_literal(&self.vars) {
                 self.literal_watcher.add_watch(-lit, clause_id);
                 continue;
             }
@@ -58,6 +63,9 @@ impl State {
                 .update_clause(clause, clause_id, -lit, &self.vars);
             match watch_update {
                 WatchUpdate::FoundNewWatch => {}
+                WatchUpdate::Satisfied => {
+                    self.literal_watcher.add_watch(-lit, clause_id);
+                }
                 WatchUpdate::Unit(unit) => {
                     unit_propagator.enqueue(unit, clause_id);
                 }
