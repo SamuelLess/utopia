@@ -79,25 +79,8 @@ impl Trail {
     pub fn backtrack(
         &mut self,
         state: &mut State,
-        unit_propagator: &mut UnitPropagator,
-        learned_clause_id: ClauseId,
         assertion_level: usize,
     ) {
-        let learned_clause = state.clauses[learned_clause_id].clone();
-
-        let top = learned_clause
-            .clone()
-            .find(|lit| {
-                let assignment = self
-                    .assignment_stack
-                    .iter()
-                    .find(|a| a.literal.id() == lit.id())
-                    .unwrap();
-                assignment.decision_level == self.decision_level
-            })
-            .expect("Clause was not UIP");
-        // top most element is in the conflict clause and has highest decision level
-        unit_propagator.enqueue(top, learned_clause_id);
         while let Some(assignment) = self.assignment_stack.last().cloned() {
             if assignment.decision_level == assertion_level {
                 break;

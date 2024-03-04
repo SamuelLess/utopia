@@ -70,12 +70,12 @@ impl ClauseLearner {
 
         let learned_clause_len = learned_clause.len();
         learned_clause.swap(0, learned_clause_len - 1);
-        assert_eq!(
+        debug_assert_eq!(
             trail.var_decision_level[learned_clause[0].id()],
             trail.decision_level
         );
         // learned clause is UIP
-        assert_eq!(
+        debug_assert_eq!(
             learned_clause
                 .iter()
                 .filter(|lit| trail.var_decision_level[lit.id()] == trail.decision_level)

@@ -82,13 +82,15 @@ impl Solver {
                 );
 
                 self.proof_logger.log(&new_clause);
+                // The first literal is always UIP
+                let uip = new_clause.literals[0];
                 let new_clause_id = self.state.add_clause(new_clause);
+
+                unit_propagator.enqueue(uip, new_clause_id);
 
                 heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
                 trail.backtrack(
                     &mut self.state,
-                    &mut unit_propagator,
-                    new_clause_id,
                     assertion_level,
                 );
                 continue;
