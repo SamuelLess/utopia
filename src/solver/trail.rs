@@ -97,7 +97,7 @@ impl Trail {
             .iter()
             .rev()
             .position(|assignment| assignment.decision_level == assertion_level)
-            .unwrap_or(0);
+            .unwrap_or(self.assignment_stack.len());
         // [1@1,7@1,2@2,3@2,4@3,5@3] -> 3 idx = 2 ->  len=6-2-1=4
         let len = self.assignment_stack.len();
         &self.assignment_stack[(len - last)..]

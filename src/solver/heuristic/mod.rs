@@ -30,6 +30,8 @@ pub enum HeuristicType {
     TrueFirst,
     #[clap(name = "vmtf")]
     VMTF,
+    #[clap(name = "vsids")]
+    VSIDS,
 }
 
 impl HeuristicType {
@@ -38,6 +40,7 @@ impl HeuristicType {
             HeuristicType::Decay => Box::new(decay::HeuristicDecay::init(state)),
             HeuristicType::TrueFirst => Box::new(basic::HeuristicTrue::init(state)),
             HeuristicType::VMTF => Box::new(vmtf::HeuristicVMTF::init(state)),
+            HeuristicType::VSIDS => Box::new(vsids::HeuristicVSIDS::init(state)),
         }
     }
 }
