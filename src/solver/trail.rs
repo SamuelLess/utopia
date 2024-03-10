@@ -76,11 +76,7 @@ impl Trail {
     /// Backtrack to the last heuristic assignment
     /// and forces it to be the opposite value
     /// returns the forced assignment or none (implies unsat)
-    pub fn backtrack(
-        &mut self,
-        state: &mut State,
-        assertion_level: usize,
-    ) {
+    pub fn backtrack(&mut self, state: &mut State, assertion_level: usize) {
         while let Some(assignment) = self.assignment_stack.last().cloned() {
             if assignment.decision_level == assertion_level {
                 break;

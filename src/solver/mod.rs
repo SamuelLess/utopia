@@ -89,10 +89,8 @@ impl Solver {
                 unit_propagator.enqueue(uip, new_clause_id);
 
                 heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
-                trail.backtrack(
-                    &mut self.state,
-                    assertion_level,
-                );
+                heuristic.conflict(&self.state.clauses[conflict_clause_id]);
+                trail.backtrack(&mut self.state, assertion_level);
                 continue;
             }
 

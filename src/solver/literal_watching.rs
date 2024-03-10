@@ -75,6 +75,7 @@ impl LiteralWatcher {
         for i in 0..clause.literals.len() {
             if clause.literals[i].is_true(vars) {
                 clause.blocking_literal = clause.literals[i];
+
                 return WatchUpdate::Satisfied;
             }
 

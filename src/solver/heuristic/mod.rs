@@ -1,7 +1,9 @@
 pub mod basic;
 pub mod decay;
+mod vmtf;
+mod vsids;
 
-use crate::cnf::Literal;
+use crate::cnf::{Clause, Literal};
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
 use clap::ValueEnum;
@@ -11,6 +13,11 @@ pub trait Heuristic {
     where
         Self: Sized;
     fn replay_unassignments(&mut self, assignments: &[Assignment]);
+
+    fn conflict(&mut self, _clause: &Clause) {
+        // by default, do nothing
+    }
+
     fn next(&mut self, vars: &[Option<bool>]) -> Literal;
 }
 
@@ -21,6 +28,8 @@ pub enum HeuristicType {
     Decay,
     #[clap(name = "true-first")]
     TrueFirst,
+    #[clap(name = "vmtf")]
+    VMTF,
 }
 
 impl HeuristicType {
@@ -28,6 +37,7 @@ impl HeuristicType {
         match self {
             HeuristicType::Decay => Box::new(decay::HeuristicDecay::init(state)),
             HeuristicType::TrueFirst => Box::new(basic::HeuristicTrue::init(state)),
+            HeuristicType::VMTF => Box::new(vmtf::HeuristicVMTF::init(state)),
         }
     }
 }

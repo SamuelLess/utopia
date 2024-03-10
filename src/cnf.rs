@@ -1,8 +1,9 @@
-use crate::solver::trail::Assignment;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Neg;
 use std::str::FromStr;
+
+use crate::solver::trail::Assignment;
 
 pub fn check_assignment(clauses: Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
     clauses.iter().all(|clause| {
