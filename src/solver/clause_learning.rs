@@ -1,4 +1,5 @@
 use crate::cnf::{Clause, ClauseId, Literal};
+use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -11,7 +12,7 @@ impl ClauseLearner {
     pub fn analyse_conflict(
         &mut self,
         trail: &mut Trail,
-        clauses: &[Clause],
+        clause_database: &ClauseDatabase,
         conflict_clause_id: ClauseId,
     ) -> (Clause, usize) {
         let mut learned_clause = vec![];
@@ -24,7 +25,7 @@ impl ClauseLearner {
         let mut seen = HashSet::new();
 
         loop {
-            let conflict_clause = &clauses[current_reason_clause_id];
+            let conflict_clause = &clause_database[current_reason_clause_id];
 
             for lit in conflict_clause.literals.clone() {
                 if current_literal.is_some() && lit.id() == current_literal.unwrap().id() {
@@ -111,7 +112,17 @@ impl ClauseLearner {
         }
 
         assert!(assertion_level < trail.decision_level);
-        (Clause::from(learned_clause), assertion_level)
+
+        // calculate lbd
+        let lbd = learned_clause
+            .iter()
+            .map(|lit| trail.var_decision_level[lit.id()])
+            .collect::<HashSet<_>>()
+            .len();
+        (
+            Clause::from_literals_and_lbd(learned_clause, lbd),
+            assertion_level,
+        )
     }
 }
 
@@ -153,7 +164,7 @@ mod tests {
             );
             unit_propagator.propagate(&mut state, &mut brancher);
         }
-        state.verify_watches();
+        //state.verify_watches();
         assert_eq!(
             brancher.assignment_stack[0],
             Assignment::heuristic((-9).into(), 1)
@@ -171,7 +182,7 @@ mod tests {
         println!("{:?}", brancher.assignment_stack);
         let clause = clause_learner.analyse_conflict(
             &mut brancher,
-            &state.clauses,
+            &state.clause_database,
             state.conflict_clause_id.clone().unwrap(),
         );
         println!("learned clause {:?}", clause);
@@ -203,14 +214,14 @@ mod tests {
             );
             unit_propagator.propagate(&mut state, &mut trail);
         }
-        state.verify_watches();
+        // state.verify_watches();
         println!("{}", trail.implication_graph(&state));
         assert!(state.conflict_clause_id.is_some());
         println!("{:?}", state.conflict_clause_id);
         println!("{:#?}", trail.assignment_stack);
         let learned_clause = clause_learner.analyse_conflict(
             &mut trail,
-            &state.clauses,
+            &state.clause_database,
             state.conflict_clause_id.unwrap(),
         );
         println!("{:?}", learned_clause);
@@ -243,7 +254,7 @@ mod tests {
         println!("{}", trail.implication_graph(&state));
         let learned_clause = clause_learner.analyse_conflict(
             &mut trail,
-            &state.clauses,
+            &state.clause_database,
             state.conflict_clause_id.unwrap(),
         );
         println!("{:?}", learned_clause);

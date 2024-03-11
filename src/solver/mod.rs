@@ -1,3 +1,4 @@
+mod clause_database;
 mod clause_learning;
 pub mod config;
 pub mod heuristic;
@@ -22,8 +23,8 @@ use std::collections::HashMap;
 
 pub struct Solver {
     config: Config,
-    cnf: Vec<Clause>,
     state: State,
+    cnf: Vec<Clause>,
     preprocessor: Preprocessor,
     clause_learner: ClauseLearner,
     proof_logger: ProofLogger,
@@ -31,12 +32,11 @@ pub struct Solver {
 
 impl Solver {
     pub fn new(clauses: Vec<Clause>, config: Config) -> Self {
-        let cnf = clauses;
         let preprocessor = Preprocessor::default();
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            cnf,
+            cnf: clauses,
             state: State::init(vec![]),
             preprocessor,
             clause_learner,
@@ -74,23 +74,31 @@ impl Solver {
                 if trail.decision_level == 0 {
                     break;
                 }
+                self.state
+                    .clause_database
+                    .delete_clauses_if_neccessary(&mut self.state.literal_watcher, &trail);
+
                 // find conflict clause
                 let (new_clause, assertion_level) = self.clause_learner.analyse_conflict(
                     &mut trail,
-                    &self.state.clauses,
+                    &self.state.clause_database,
                     conflict_clause_id,
                 );
 
                 self.proof_logger.log(&new_clause);
                 // The first literal is always UIP
                 let uip = new_clause.literals[0];
-                let new_clause_id = self.state.add_clause(new_clause);
+                let new_clause_id = self
+                    .state
+                    .clause_database
+                    .add_clause(new_clause, &mut self.state.literal_watcher);
 
                 unit_propagator.enqueue(uip, new_clause_id);
 
                 heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
-                heuristic.conflict(&self.state.clauses[conflict_clause_id]);
+                heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
                 trail.backtrack(&mut self.state, assertion_level);
+
                 continue;
             }
 

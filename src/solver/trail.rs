@@ -111,7 +111,7 @@ impl Trail {
         let mut out = String::from("digraph G {\n");
         for assignment in self.assignment_stack.iter() {
             if let AssignmentReason::Forced(reason) = &assignment.reason {
-                for lit in &state.clauses[*reason].literals {
+                for lit in &state.clause_database[*reason].literals {
                     if lit == &assignment.literal {
                         continue;
                     }
@@ -125,7 +125,7 @@ impl Trail {
             }
         }
         if let Some(conflict_clause_id) = &state.conflict_clause_id {
-            for lit in &state.clauses[*conflict_clause_id].literals {
+            for lit in &state.clause_database[*conflict_clause_id].literals {
                 let dl_lit = self.var_decision_level[lit.id()];
                 out.push_str(&format!(
                     "\"{}@{}\" -> C [color=red, label=\"\"];\n",

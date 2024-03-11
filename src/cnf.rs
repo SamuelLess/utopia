@@ -122,13 +122,15 @@ pub type ClauseId = usize;
 pub struct Clause {
     pub literals: Vec<Literal>,
     pub blocking_literal: Literal,
+    pub lbd: Option<usize>,
 }
 
 impl Clause {
-    pub fn new(literals: Vec<Literal>) -> Self {
+    pub fn from_literals_and_lbd(literals: Vec<Literal>, lbd: usize) -> Self {
         Clause {
-            blocking_literal: literals[0],
+            blocking_literal: *literals.first().unwrap_or(&Literal::new(0)),
             literals,
+            lbd: Some(lbd),
         }
     }
 
@@ -165,6 +167,7 @@ impl From<Vec<Literal>> for Clause {
         Clause {
             blocking_literal: *literals.first().unwrap_or(&Literal::new(0)),
             literals,
+            lbd: None,
         }
     }
 }

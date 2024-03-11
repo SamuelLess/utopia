@@ -1,4 +1,5 @@
 use crate::cnf::{Clause, ClauseId, Literal};
+use std::ops::Neg;
 
 #[derive(Debug, Default, Clone)]
 pub struct VarWatch {
@@ -27,8 +28,20 @@ impl LiteralWatcher {
     }
 
     pub fn add_clause(&mut self, clause: &Clause, clause_id: ClauseId) {
+        // unit clauses don't need watches
+        if clause.literals.len() < 2 {
+            return;
+        }
+
         for lit in &clause.literals[0..2] {
             self.add_watch(*lit, clause_id);
+        }
+    }
+
+    pub fn delete_clause(&mut self, clause: &Clause, clause_id: ClauseId) {
+        for lit in &clause.literals[0..2] {
+            self.affected_clauses(lit.neg())
+                .retain(|&id| id != clause_id);
         }
     }
 

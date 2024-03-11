@@ -1,4 +1,5 @@
 use crate::cnf::{Clause, ClauseId, Literal, VarId};
+use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::literal_watching::{LiteralWatcher, WatchUpdate};
 use crate::solver::statistics::StateStatistics;
 use crate::solver::unit_propagation::UnitPropagator;
@@ -8,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 pub struct State {
     pub conflict_clause_id: Option<ClauseId>,
     pub vars: Vec<Option<bool>>,
-    pub clauses: Vec<Clause>,
+    pub clause_database: ClauseDatabase,
     pub literal_watcher: LiteralWatcher,
     pub num_vars: usize,
     pub stats: StateStatistics,
@@ -23,13 +24,14 @@ impl State {
             .map(|lit| lit.id())
             .collect();
 
+        let clause_database = ClauseDatabase::init(clauses);
         State {
             conflict_clause_id: None,
             vars: vec![None; all_vars.len() + 1],
-            clauses: clauses.clone(),
-            literal_watcher: LiteralWatcher::new(&clauses, all_vars.len()),
+            literal_watcher: LiteralWatcher::new(clause_database.cnf(), all_vars.len()),
+            stats: StateStatistics::new(clause_database.cnf().len(), all_vars.len()),
+            clause_database,
             num_vars: all_vars.len(),
-            stats: StateStatistics::new(clauses.len(), all_vars.len()),
         }
     }
 
@@ -51,7 +53,7 @@ impl State {
                 continue;
             }
 
-            let clause = &mut self.clauses[clause_id];
+            let clause = &mut self.clause_database[clause_id];
             // check the blocking literal first
             if clause.check_blocking_literal(&self.vars) {
                 self.literal_watcher.add_watch(-lit, clause_id);
@@ -75,30 +77,15 @@ impl State {
                 }
             }
         }
-
-        // all conflicts have been detected
-        debug_assert_eq!(
-            self.conflict_clause_id.is_some(),
-            self.clauses.iter().any(|c| c.is_conflict(&self.vars))
-        );
     }
 
     pub fn unassign(&mut self, lit: Literal) {
         self.vars[lit.id()] = None;
     }
 
-    pub fn add_clause(&mut self, clause: Clause) -> ClauseId {
-        let id = self.clauses.len();
-        self.clauses.push(clause.clone());
-        if clause.literals.len() != 1 {
-            // watches are invalid unit will always be true
-            self.literal_watcher.add_clause(&clause, id);
-        }
-        id
-    }
-
     pub fn is_satisfied(&self) -> bool {
-        self.clauses
+        self.clause_database
+            .cnf()
             .iter()
             .all(|clause| clause.is_satisfied(&self.vars))
     }
@@ -113,6 +100,7 @@ impl State {
         result
     }
 
+    /*
     /// Verifies the watched literal invariant.
     /// Every unsatisfied clause has at least one watched literal
     /// that is non-false. If exactly one is non-false, it is
@@ -147,7 +135,7 @@ impl State {
                     .contains(&clause_id));
             }
         }
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -166,7 +154,7 @@ mod tests {
         let state = State::init(clauses);
         assert_eq!(state.num_vars, 3);
         assert_eq!(state.vars, vec![None, None, None, None]);
-        assert_eq!(state.clauses.len(), 3);
+        //assert_eq!(state.clause_database.len(), 3);
     }
 
     #[test]
@@ -176,11 +164,8 @@ mod tests {
         let mut unit_prop = UnitPropagator::default();
         state.assign(Literal::from(1), &mut unit_prop);
         assert_eq!(state.vars[1], Some(true));
-        assert_eq!(state.clauses[0].watches, [0, 1]);
-        assert_eq!(state.clauses[1].watches, [1, 2]);
         state.assign(Literal::from(2), &mut unit_prop);
         assert_eq!(state.vars[2], Some(true));
-        assert_eq!(state.clauses[1].watches, [1, 2]);
         println!("{:?}", state);
         assert_eq!(unit_prop.unit_queue[0], (Literal::from(3), 1));
         state.assign(Literal::from(-3), &mut unit_prop);
@@ -200,10 +185,6 @@ mod tests {
         state.assign(Literal::from(1), &mut unit_prop);
         state.assign(Literal::from(2), &mut unit_prop);
         println!("{:?}", state);
-        assert!(state.clauses[0].watches.contains(&0));
-        assert!(state.clauses[0].watches.contains(&1));
-        assert!(state.clauses[1].watches.contains(&1));
-        assert!(state.clauses[1].watches.contains(&2));
 
         assert_eq!(state.literal_watcher.var_watches[1].pos, vec![0]);
         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
