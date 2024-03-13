@@ -1,4 +1,5 @@
 use crate::cnf::{ClauseId, Literal};
+use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
 use crate::solver::unit_propagation::UnitPropagator;
 
@@ -76,17 +77,27 @@ impl Trail {
     /// Backtrack to the last heuristic assignment
     /// and forces it to be the opposite value
     /// returns the forced assignment or none (implies unsat)
-    pub fn backtrack(&mut self, state: &mut State, assertion_level: usize) {
+    pub fn backtrack(
+        &mut self,
+        state: &mut State,
+        heuristic: &mut dyn Heuristic,
+        assertion_level: usize,
+    ) {
         while let Some(assignment) = self.assignment_stack.last().cloned() {
             if assignment.decision_level == assertion_level {
                 break;
             }
+            heuristic.unassign(&assignment);
             self.assignment_stack.pop();
             state.unassign(assignment.literal);
         }
 
         self.decision_level = assertion_level;
         state.conflict_clause_id = None;
+    }
+
+    pub fn restart(&mut self, state: &mut State, heuristic: &mut dyn Heuristic) {
+        self.backtrack(state, heuristic, 0);
     }
 
     /// Returns the assignments that from top to most recent heuristic

@@ -63,13 +63,6 @@ impl HeuristicDecay {
         }
         panic!("No unassigned literal found");
     }
-
-    pub fn unassigned_var(&mut self, var: VarId) {
-        // increase the key of the var by one
-        let (var_id, _, heuristic_value) = &mut self.order[self.positions[var]];
-        debug_assert_eq!(*var_id, var);
-        *heuristic_value += 1.0;
-    }
 }
 
 impl Heuristic for HeuristicDecay {
@@ -79,10 +72,11 @@ impl Heuristic for HeuristicDecay {
         manager
     }
 
-    fn replay_unassignments(&mut self, assignments: &[Assignment]) {
-        for assignment in assignments {
-            self.unassigned_var(assignment.literal.id());
-        }
+    fn unassign(&mut self, assignment: &Assignment) {
+        // increase the key of the var by one
+        let (var_id, _, heuristic_value) = &mut self.order[self.positions[assignment.literal.id()]];
+        debug_assert_eq!(*var_id, assignment.literal.id());
+        *heuristic_value += 1.0;
     }
 
     fn next(&mut self, vars: &[Option<bool>]) -> Literal {

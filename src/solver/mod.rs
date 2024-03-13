@@ -4,6 +4,7 @@ pub mod config;
 pub mod heuristic;
 mod literal_watching;
 mod proof_logger;
+pub mod restarts;
 pub mod state;
 pub mod statistics;
 pub mod trail;
@@ -14,6 +15,7 @@ use crate::preprocessor::Preprocessor;
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::proof_logger::ProofLogger;
+use crate::solver::restarts::Restarter;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::trail::{AssignmentReason, Trail};
@@ -62,6 +64,7 @@ impl Solver {
         self.state = State::init(self.cnf.clone());
 
         let mut heuristic = self.config.heuristic.create(&self.state);
+        let mut restarter = Restarter::init(self.config.restart_policy);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::new(self.state.num_vars);
 
@@ -86,6 +89,8 @@ impl Solver {
                 );
 
                 self.proof_logger.log(&new_clause);
+                restarter.conflict();
+
                 // The first literal is always UIP
                 let uip = new_clause.literals[0];
                 let new_clause_id = self
@@ -95,25 +100,23 @@ impl Solver {
 
                 unit_propagator.enqueue(uip, new_clause_id);
 
-                heuristic.replay_unassignments(trail.assignments_to_undo(assertion_level));
                 heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
-                trail.backtrack(&mut self.state, assertion_level);
-
-                continue;
-            }
-
-            if self.state.is_satisfied() {
+                trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
+            } else if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
+            } else if restarter.check_if_restart_necessary() {
+                self.state.stats.num_restarts += 1;
+                trail.restart(&mut self.state, heuristic.as_mut());
+            } else {
+                let next_literal = heuristic.next(&self.state.vars);
+                trail.assign(
+                    &mut self.state,
+                    &mut unit_propagator,
+                    next_literal,
+                    AssignmentReason::Heuristic,
+                );
             }
-
-            let next_literal = heuristic.next(&self.state.vars);
-            trail.assign(
-                &mut self.state,
-                &mut unit_propagator,
-                next_literal,
-                AssignmentReason::Heuristic,
-            );
         }
         self.state.stats.stop_timing();
         if let Some(proof_file) = self.config.proof_file.as_ref() {

@@ -48,11 +48,9 @@ impl Heuristic for HeuristicVSIDS {
         }
     }
 
-    fn replay_unassignments(&mut self, assignments: &[Assignment]) {
-        for assignment in assignments {
-            let (var_id, _) = assignment.literal.id_val();
-            self.order.push(var_id, self.priorities[var_id]); // replaces any existing priority
-        }
+    fn unassign(&mut self, assignment: &Assignment) {
+        let (var_id, _) = assignment.literal.id_val();
+        self.order.push(var_id, self.priorities[var_id]); // replaces any existing priority
     }
 
     fn conflict(&mut self, clause: &Clause) {

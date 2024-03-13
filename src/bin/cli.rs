@@ -4,6 +4,7 @@ use utopia::cnf::{check_assignment, Clause, VarId};
 use utopia::dimacs::{clauses_from_dimacs_file, solution_to_dimacs};
 use utopia::solver::config::Config;
 use utopia::solver::heuristic::HeuristicType;
+use utopia::solver::restarts::RestartPolicy;
 use utopia::solver::statistics::StateStatistics;
 use utopia::solver::Solver;
 
@@ -23,6 +24,9 @@ struct Args {
 
     #[arg(long, default_value = "decay")]
     heuristic: HeuristicType,
+
+    #[arg(short, long, default_value = "luby")]
+    restart_policy: RestartPolicy,
 }
 
 fn main() {
@@ -32,7 +36,11 @@ fn main() {
 
     let mut solver = Solver::new(
         cnf.clone(),
-        Config::new(args.heuristic.clone(), args.proof.clone()),
+        Config::new(
+            args.heuristic.clone(),
+            args.proof.clone(),
+            args.restart_policy.clone(),
+        ),
     );
 
     let solution = solver.solve();

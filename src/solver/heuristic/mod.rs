@@ -12,7 +12,7 @@ pub trait Heuristic {
     fn init(state: &State) -> Self
     where
         Self: Sized;
-    fn replay_unassignments(&mut self, assignments: &[Assignment]);
+    fn unassign(&mut self, assignments: &Assignment);
 
     fn conflict(&mut self, _clause: &Clause) {
         // by default, do nothing
@@ -22,7 +22,6 @@ pub trait Heuristic {
 }
 
 #[derive(Debug, Clone, ValueEnum)]
-#[clap(rename_all = "kebab_case")]
 pub enum HeuristicType {
     #[clap(name = "decay")]
     Decay,

@@ -9,6 +9,7 @@ pub struct StateStatistics {
     pub num_decisions: usize,
     pub num_propagations: usize,
     pub num_assignments: usize,
+    pub num_restarts: usize,
     pub num_unassignments: usize,
     pub num_ple: usize,
     pub start_time: std::time::Instant,
@@ -25,6 +26,7 @@ impl Default for StateStatistics {
             num_decisions: 0,
             num_propagations: 0,
             num_assignments: 0,
+            num_restarts: 0,
             num_unassignments: 0,
             num_ple: 0,
             start_time: std::time::Instant::now(),
@@ -66,6 +68,7 @@ impl StateStatistics {
         // each row with name -> property
         table.add_row(row!["Assignments", self.num_assignments]);
         table.add_row(row!["Conflicts", self.num_conflicts]);
+        table.add_row(row!["Restarts", self.num_restarts]);
         table.add_row(row![
             "Assignments per second",
             (self.num_assignments as f32 / self.time.as_secs_f32()) as u32

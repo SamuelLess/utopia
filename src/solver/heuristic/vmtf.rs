@@ -16,7 +16,7 @@ impl Heuristic for HeuristicVMTF {
         }
     }
 
-    fn replay_unassignments(&mut self, _assignments: &[Assignment]) {
+    fn unassign(&mut self, _assignment: &Assignment) {
         // no need to replay unassignments with VMTF
     }
 

@@ -14,10 +14,8 @@ impl Heuristic for HeuristicTrue {
         HeuristicTrue { order }
     }
 
-    fn replay_unassignments(&mut self, assignments: &[Assignment]) {
-        for assignment in assignments {
-            self.order.push(assignment.literal.id_val());
-        }
+    fn unassign(&mut self, assignment: &Assignment) {
+        self.order.push(assignment.literal.id_val());
     }
 
     fn next(&mut self, vars: &[Option<bool>]) -> Literal {
