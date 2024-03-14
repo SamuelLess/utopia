@@ -10,7 +10,7 @@ pub mod statistics;
 pub mod trail;
 mod unit_propagation;
 
-use crate::cnf::{Clause, Solution, VarId};
+use crate::cnf::{Clause, Literal, Solution, VarId};
 use crate::preprocessor::Preprocessor;
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
@@ -109,7 +109,8 @@ impl Solver {
                 self.state.stats.num_restarts += 1;
                 trail.restart(&mut self.state, heuristic.as_mut());
             } else {
-                let next_literal = heuristic.next(&self.state.vars);
+                let next_var = heuristic.next(&self.state.vars);
+                let next_literal = Literal::from_value(next_var, self.state.var_phases[next_var]);
                 trail.assign(
                     &mut self.state,
                     &mut unit_propagator,

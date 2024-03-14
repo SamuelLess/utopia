@@ -1,7 +1,7 @@
 use ordered_float::NotNan;
 use priority_queue::PriorityQueue;
 
-use crate::cnf::{Clause, Literal, VarId};
+use crate::cnf::{Clause, VarId};
 use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
@@ -73,11 +73,11 @@ impl Heuristic for HeuristicVSIDS {
         }
     }
 
-    fn next(&mut self, vars: &[Option<bool>]) -> Literal {
+    fn next(&mut self, vars: &[Option<bool>]) -> VarId {
         loop {
             let (var_id, _) = self.order.pop().expect("No unassigned variable found");
             if vars[var_id].is_none() {
-                return Literal::from_value(var_id, true);
+                return var_id;
             }
         }
     }

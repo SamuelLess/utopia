@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 pub struct State {
     pub conflict_clause_id: Option<ClauseId>,
     pub vars: Vec<Option<bool>>,
+    pub var_phases: Vec<bool>,
     pub clause_database: ClauseDatabase,
     pub literal_watcher: LiteralWatcher,
     pub num_vars: usize,
@@ -28,6 +29,7 @@ impl State {
         State {
             conflict_clause_id: None,
             vars: vec![None; all_vars.len() + 1],
+            var_phases: vec![true; all_vars.len() + 1],
             literal_watcher: LiteralWatcher::new(clause_database.cnf(), all_vars.len()),
             stats: StateStatistics::new(clause_database.cnf().len(), all_vars.len()),
             clause_database,
@@ -44,6 +46,7 @@ impl State {
         }
         //self.verify_watches();
         self.vars[var_id] = Some(value);
+        self.var_phases[var_id] = value;
 
         let affected_clauses = std::mem::take(self.literal_watcher.affected_clauses(lit));
         for clause_id in affected_clauses {

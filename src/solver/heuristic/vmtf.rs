@@ -1,4 +1,4 @@
-use crate::cnf::{Clause, Literal, VarId};
+use crate::cnf::{Clause, VarId};
 use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
@@ -30,7 +30,7 @@ impl Heuristic for HeuristicVMTF {
         self.order = var_ids.chain(self.order.iter().cloned()).collect();
     }
 
-    fn next(&mut self, vars: &[Option<bool>]) -> Literal {
+    fn next(&mut self, vars: &[Option<bool>]) -> VarId {
         // find the first variable in the order that is not assigned
         let mut unassigned_pos = None;
 
@@ -41,6 +41,6 @@ impl Heuristic for HeuristicVMTF {
             }
         }
 
-        Literal::from_value(unassigned_pos.expect("No unassigned variable found"), true)
+        unassigned_pos.expect("No unassigned variable found")
     }
 }

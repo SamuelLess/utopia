@@ -3,7 +3,7 @@ pub mod decay;
 mod vmtf;
 mod vsids;
 
-use crate::cnf::{Clause, Literal};
+use crate::cnf::{Clause, VarId};
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
 use clap::ValueEnum;
@@ -18,7 +18,7 @@ pub trait Heuristic {
         // by default, do nothing
     }
 
-    fn next(&mut self, vars: &[Option<bool>]) -> Literal;
+    fn next(&mut self, vars: &[Option<bool>]) -> VarId;
 }
 
 #[derive(Debug, Clone, ValueEnum)]

@@ -1,4 +1,4 @@
-use crate::cnf::{Literal, VarId};
+use crate::cnf::VarId;
 use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
@@ -18,10 +18,10 @@ impl Heuristic for HeuristicTrue {
         self.order.push(assignment.literal.id_val());
     }
 
-    fn next(&mut self, vars: &[Option<bool>]) -> Literal {
-        for (id, val) in self.order.iter() {
+    fn next(&mut self, vars: &[Option<bool>]) -> VarId {
+        for (id, _) in self.order.iter() {
             if vars[*id].is_none() {
-                return Literal::from_value(*id, *val);
+                return *id;
             }
         }
         panic!("No unassigned literal found");
