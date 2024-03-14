@@ -8,7 +8,7 @@ use std::ops::IndexMut;
 #[derive(Debug, Clone)]
 pub struct ClauseDatabase {
     clauses: Vec<Clause>,
-    first_learnt_clause_id: ClauseId,
+    first_learned_clause_id: ClauseId,
     free_clause_ids: Vec<ClauseId>,
     num_deletions: usize,
     conflicts_since_last_deletion: usize,
@@ -18,7 +18,7 @@ impl ClauseDatabase {
     pub fn init(clauses: Vec<Clause>) -> Self {
         ClauseDatabase {
             free_clause_ids: vec![],
-            first_learnt_clause_id: clauses.len(),
+            first_learned_clause_id: clauses.len(),
             clauses,
             num_deletions: 0,
             conflicts_since_last_deletion: 0,
@@ -26,7 +26,7 @@ impl ClauseDatabase {
     }
 
     pub fn cnf(&self) -> &[Clause] {
-        &self.clauses[0..self.first_learnt_clause_id]
+        &self.clauses[0..self.first_learned_clause_id]
     }
 
     pub fn add_clause(&mut self, clause: Clause, literal_watcher: &mut LiteralWatcher) -> ClauseId {

@@ -1,6 +1,7 @@
 mod clause_database;
 mod clause_learning;
 pub mod config;
+mod ema_policy;
 pub mod heuristic;
 mod literal_watching;
 mod proof_logger;
@@ -89,7 +90,7 @@ impl Solver {
                 );
 
                 self.proof_logger.log(&new_clause);
-                restarter.conflict();
+                restarter.conflict(new_clause.lbd.unwrap(), trail.assignment_stack.len());
 
                 // The first literal is always UIP
                 let uip = new_clause.literals[0];

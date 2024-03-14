@@ -22,11 +22,12 @@ impl Config {
 }
 
 impl Default for Config {
+    // usually only used for tests
     fn default() -> Self {
         Config {
-            heuristic: HeuristicType::Decay,
+            heuristic: HeuristicType::VSIDS,
             proof_file: None,
-            restart_policy: RestartPolicy::Luby,
+            restart_policy: RestartPolicy::GlucoseEma,
         }
     }
 }

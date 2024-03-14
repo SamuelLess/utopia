@@ -22,10 +22,10 @@ struct Args {
     #[arg(short, long, help = "Path to put proof file")]
     proof: Option<String>,
 
-    #[arg(long, default_value = "decay")]
+    #[arg(long, default_value = "vsids")]
     heuristic: HeuristicType,
 
-    #[arg(short, long, default_value = "luby")]
+    #[arg(short, long, default_value = "glucose-ema")]
     restart_policy: RestartPolicy,
 }
 
@@ -39,7 +39,7 @@ fn main() {
         Config::new(
             args.heuristic.clone(),
             args.proof.clone(),
-            args.restart_policy.clone(),
+            args.restart_policy,
         ),
     );
 
