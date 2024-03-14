@@ -1,4 +1,6 @@
+use flate2::read::GzDecoder;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
 
 use crate::cnf::{Clause, Literal, VarId};
@@ -9,7 +11,17 @@ pub fn clauses_from_dimacs_file(path: &str) -> Result<Vec<Clause>, String> {
         return Err(format!("File {} not found", path));
     }
 
-    clauses_from_dimacs(std::fs::read_to_string(path).map_err(|e| e.to_string())?)
+    clauses_from_dimacs(if path.ends_with(".gz") {
+        let file = std::fs::File::open(path).map_err(|err| err.to_string())?;
+        let mut decoder = GzDecoder::new(file);
+        let mut result_string = String::new();
+        decoder
+            .read_to_string(&mut result_string)
+            .map_err(|e| e.to_string())?;
+        result_string
+    } else {
+        std::fs::read_to_string(path).map_err(|e| e.to_string())?
+    })
 }
 
 pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {

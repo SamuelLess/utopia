@@ -39,18 +39,27 @@ SOLVERS = {
     'arcane-static-occ': [ARCANE_BIN_PATH, "--heuristic", "static-occ"],
     'utopia': [UTOPIA_BIN_PATH],
     'utopia-proof': [UTOPIA_BIN_PATH, "--proof", "out.proof"],
+    'utopia-fixed-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "fixed-interval"],
+    'utopia-geometric-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "geometric"],
+    'utopia-luby-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "luby"],
+    'utopia-no-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "no-restarts"],
     'cadical': ['cadical'],
     'minisat': ['minisat'],
     'z3': ['z3'],
 }
 
+BENCHMARK_SETS = {
+    'lecture': "../testfiles/lecture_testfiles",
+    '2006': "../testfiles/competitions/2006"
+}
 
-def find_files(path="../testfiles/", filters=[]):
+
+def find_files(path, filters=[]):
     """find all cnf files in the lecture_testfiles directory"""
     cnf_files = []
     for root, dirs, files in os.walk(path):
         for file in files:
-            if not file.endswith(".cnf"):
+            if not (file.endswith(".cnf") or file.endswith(".cnf.gz")):
                 continue
             full_path = os.path.join(root, file)
             skip = False
@@ -73,16 +82,25 @@ def solve_with_binary(binary: List[str], cnf_file):
     assignments = 0
     try:
         process = subprocess.run([*binary, cnf_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT)
-        true_result = "unsat" if "unsat" in cnf_file else "sat"
+        true_result = None
+        if "lecture_testfiles" in cnf_file:
+            true_result = "unsat" if "unsat" in cnf_file else "sat"
+        if "2006" in cnf_file:
+            if "sat" in cnf_file:
+                true_result = "sat"
+            elif "uns" in cnf_file:
+                true_result = "unsat"
+
         contains_unsat = "UNSATISFIABLE" in process.stdout.decode('utf-8') or "unsat" in process.stdout.decode('utf-8')
         contains_sat = ("SATISFIABLE" in process.stdout.decode('utf-8') or
                         ("sat" in process.stdout.decode('utf-8') and not contains_unsat))
 
         solver_result = "unsat" if contains_unsat else "sat" if contains_sat and not contains_unsat else "UNKNOWN"
 
-        if true_result != solver_result:
-            tqdm.tqdm.write(f'Wrong result for {cnf_file}: {solver_result} instead of {true_result}')
-            return f"WRONG RESULT", 0
+        if true_result is not None:
+            if true_result != solver_result:
+                tqdm.tqdm.write(f'Wrong result for {cnf_file}: {solver_result} instead of {true_result}')
+                return f"WRONG RESULT", 0
 
         # get assignment count from output
         if contains_sat:
@@ -117,6 +135,9 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     key = 'assignments' if assignments else 'time'
 
     df = pd.DataFrame(data)
+
+    if len(df) == 0:
+        return
     # only keep rows that contain lecture in the filename in the dataframe
     # df.drop(df[~df['file'].str.contains("lecture")].index, inplace=True)
     # df.drop(df[df['file'].str.contains("/test/")].index, inplace=True)
@@ -172,19 +193,30 @@ def create_plot_occasionally(data, solvers):
 
 
 def main():
-    solvers = ['arcane-decay', 'utopia']
+    solvers = []
+    benchmarks = []
 
-    # override solvers with command line arguments
-    if len(sys.argv) > 1:
-        solvers = sys.argv[1:]
+    arguments = sys.argv[1:]
     # validate solvers
-    for solver in solvers:
-        if solver not in SOLVERS:
-            print(f"Unknown solver: {solver}, available solvers: {SOLVERS.keys()}")
+    for arg in arguments:
+        if arg in SOLVERS:
+            solvers.append(arg)
+        elif arg in BENCHMARK_SETS:
+            benchmarks.append(arg)
+        else:
+            print(f"Unknown argument: {arg}")
             return
 
-    # cnf_files = find_files()
-    cnf_files = find_files(filters=['satlib'])
+    if len(benchmarks) == 0:
+        benchmarks = ["testfiles"]
+    if len(solvers) == 0:
+        solvers = ["utopia"]
+
+    cnf_files = []
+    for benchmark_set in benchmarks:
+        print(f"Reading benchmarks from {benchmark_set}")
+        cnf_files += find_files(path=BENCHMARK_SETS[benchmark_set])
+
     data = read_or_create_checkpoint()
     for solver in tqdm.tqdm(solvers):
         for cnf_file in tqdm.tqdm(cnf_files, desc=f'Benchmarking {solver} '):
