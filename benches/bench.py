@@ -152,7 +152,7 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     # df = df.sort_values(by=['solver', 'file'])
     df[f'cumulative_{key}'] = df.groupby('solver')[key].cumsum()
     # df['rank'] = df.groupby('solver')[f'cumulative_{key}'].rank(method='dense')
-    df['rank'] = df.groupby('solver')[f'{key}'].rank(method='dense')
+    df['rank'] = df.groupby('solver')[f'{key}'].rank(method='average')
 
     # only take solvers that are in the solvers list
     df = df[df['solver'].isin(solvers)]
@@ -208,7 +208,7 @@ def main():
             return
 
     if len(benchmarks) == 0:
-        benchmarks = ["testfiles"]
+        benchmarks = ["lecture"]
     if len(solvers) == 0:
         solvers = ["utopia"]
 

@@ -90,11 +90,7 @@ impl ClauseLearner {
             .iter()
             .map(|lit| {
                 trail
-                    .assignment_stack
-                    .iter()
-                    .find(|a| a.literal.id() == lit.id())
-                    .unwrap()
-                    .decision_level
+                    .var_decision_level[lit.id()]
             })
             .sorted()
             .rev()

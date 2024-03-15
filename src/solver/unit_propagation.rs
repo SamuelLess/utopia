@@ -1,12 +1,12 @@
 use crate::cnf::{ClauseId, Literal};
 use crate::solver::state::State;
 use crate::solver::trail::{AssignmentReason, Trail};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Default)]
 pub struct UnitPropagator {
     pub unit_queue: VecDeque<(Literal, ClauseId)>,
-    pub units: Vec<Literal>,
+    pub units: HashSet<Literal>,
 }
 
 impl UnitPropagator {
@@ -16,7 +16,7 @@ impl UnitPropagator {
             return;
         }
         self.unit_queue.push_back((lit, reason));
-        self.units.push(lit);
+        self.units.insert(lit);
     }
 
     pub fn propagate(&mut self, state: &mut State, trail: &mut Trail) {

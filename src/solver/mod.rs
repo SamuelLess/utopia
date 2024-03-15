@@ -21,8 +21,7 @@ use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::trail::{AssignmentReason, Trail};
 use crate::solver::unit_propagation::UnitPropagator;
-use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct Solver {
     config: Config,
@@ -154,7 +153,10 @@ impl Solver {
             .iter()
             .filter(|clause| clause.literals.len() == 1)
             .map(|clause| clause.literals[0]);
-        units.clone().count() != units.clone().map(|x| x.id()).unique().count()
+        let positives : HashSet<VarId> = units.clone().filter(|lit| lit.positive()).map(|lit| lit.id()).collect();
+        let negatives : HashSet<VarId> = units.clone().filter(|lit| !lit.positive()).map(|lit| lit.id()).collect();
+        
+        positives.intersection(&negatives).count() > 0
     }
 
     fn enqueue_initial_units(&self, unit_propagator: &mut UnitPropagator) {
