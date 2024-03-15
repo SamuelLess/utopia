@@ -38,8 +38,8 @@ impl Solver {
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            cnf: clauses,
-            state: State::init(vec![]),
+            cnf: clauses.clone(),
+            state: State::init(clauses.clone()),
             preprocessor,
             clause_learner,
             proof_logger: ProofLogger::new(config.proof_file.is_some()),

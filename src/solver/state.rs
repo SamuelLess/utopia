@@ -24,16 +24,17 @@ impl State {
             .flatten()
             .map(|lit| lit.id())
             .collect();
-
+    
+        let var_count = all_vars.iter().max().unwrap() + 1;
         let clause_database = ClauseDatabase::init(clauses);
         State {
             conflict_clause_id: None,
-            vars: vec![None; all_vars.len() + 1],
-            var_phases: vec![true; all_vars.len() + 1],
-            literal_watcher: LiteralWatcher::new(clause_database.cnf(), all_vars.len()),
-            stats: StateStatistics::new(clause_database.cnf().len(), all_vars.len()),
+            vars: vec![None; var_count ],
+            var_phases: vec![true;var_count],
+            literal_watcher: LiteralWatcher::new(clause_database.cnf(), var_count ),
+            stats: StateStatistics::new(clause_database.cnf().len(), var_count),
             clause_database,
-            num_vars: all_vars.len(),
+            num_vars: var_count,
         }
     }
 
