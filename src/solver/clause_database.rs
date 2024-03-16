@@ -14,6 +14,33 @@ pub struct ClauseDatabase {
     conflicts_since_last_deletion: usize,
 }
 
+pub struct Iter<'a> {
+    pos: i32,
+    length: usize,
+    free_clause_ids: &'a Vec<ClauseId>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = ClauseId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            self.pos += 1;
+            if self.pos >= self.length as i32 {
+                return None;
+            }
+            if self
+                .free_clause_ids
+                .binary_search(&(self.pos as ClauseId))
+                .is_err()
+            {
+                break;
+            }
+        }
+
+        Some(self.pos as ClauseId)
+    }
+}
 impl ClauseDatabase {
     pub fn init(clauses: Vec<Clause>) -> Self {
         ClauseDatabase {
@@ -44,7 +71,44 @@ impl ClauseDatabase {
         id
     }
 
-    pub fn delete_clauses_if_neccessary(
+    pub fn iter(&self) -> Iter {
+        Iter {
+            length: self.clauses.len(),
+            pos: -1,
+            free_clause_ids: &self.free_clause_ids,
+        }
+    }
+
+    pub fn delete_clause_if_allowed(
+        &mut self,
+        clause_id: ClauseId,
+        literal_watcher: &mut LiteralWatcher,
+        trail: &Trail,
+    ) {
+        // clauses with lbd = 2 ("glue clauses") should NOT be removed
+        if self.clauses[clause_id].lbd.is_some() && self.clauses[clause_id].lbd.unwrap() <= 2 {
+            return;
+        }
+
+        // Clauses that are currently reason clauses may NOT be removed
+        let is_reason = trail
+            .assignment_stack
+            .iter()
+            .any(|assignment| assignment.reason == AssignmentReason::Forced(clause_id));
+        if is_reason {
+            return;
+        }
+
+        if self.free_clause_ids.contains(&clause_id) {
+            return;
+        }
+
+        literal_watcher.delete_clause(&self.clauses[clause_id], clause_id);
+        self.free_clause_ids.push(clause_id);
+        self.free_clause_ids.sort_unstable();
+    }
+
+    pub fn delete_clauses_if_necessary(
         &mut self,
         literal_watcher: &mut LiteralWatcher,
         trail: &Trail,
@@ -74,34 +138,16 @@ impl ClauseDatabase {
         lbds.sort();
         let threshold = lbds[lbds.len() / 2];
 
-        for (clause_id, clause) in self.clauses.iter().enumerate() {
-            if let Some(lbd) = clause.lbd {
+        for clause_id in 0..self.clauses.len() {
+            if let Some(lbd) = self.clauses[clause_id].lbd {
                 if lbd <= threshold {
                     continue;
                 }
 
-                // clauses with lbd = 2 ("glue clauses") should NOT be removed
-                if lbd < 2 {
-                    continue;
-                }
-
-                // Clauses that are currently reason clauses may NOT be removed
-                let is_reason = trail
-                    .assignment_stack
-                    .iter()
-                    .any(|assignment| assignment.reason == AssignmentReason::Forced(clause_id));
-                if is_reason {
-                    continue;
-                }
-
-                if self.free_clause_ids.contains(&clause_id) {
-                    continue;
-                }
-
-                literal_watcher.delete_clause(clause, clause_id);
-                self.free_clause_ids.push(clause_id);
+                self.delete_clause_if_allowed(clause_id, literal_watcher, trail);
             }
         }
+        self.free_clause_ids.sort();
     }
 }
 

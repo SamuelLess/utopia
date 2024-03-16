@@ -3,6 +3,7 @@ mod clause_learning;
 pub mod config;
 mod ema_policy;
 pub mod heuristic;
+mod inprocessor;
 mod literal_watching;
 mod proof_logger;
 pub mod restarts;
@@ -12,9 +13,9 @@ pub mod trail;
 mod unit_propagation;
 
 use crate::cnf::{Clause, Literal, Solution, VarId};
-use crate::preprocessor::Preprocessor;
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
+use crate::solver::inprocessor::Inprocessor;
 use crate::solver::proof_logger::ProofLogger;
 use crate::solver::restarts::Restarter;
 use crate::solver::state::State;
@@ -27,20 +28,17 @@ pub struct Solver {
     config: Config,
     state: State,
     cnf: Vec<Clause>,
-    preprocessor: Preprocessor,
     clause_learner: ClauseLearner,
     proof_logger: ProofLogger,
 }
 
 impl Solver {
     pub fn new(clauses: Vec<Clause>, config: Config) -> Self {
-        let preprocessor = Preprocessor::default();
         let clause_learner = ClauseLearner::default();
 
         Solver {
             cnf: clauses.clone(),
             state: State::init(clauses.clone()),
-            preprocessor,
             clause_learner,
             proof_logger: ProofLogger::new(config.proof_file.is_some()),
             config,
@@ -49,12 +47,6 @@ impl Solver {
 
     pub fn solve(&mut self) -> Solution {
         self.state.stats.start_timing();
-
-        if self.config.proof_file.is_none() {
-            if let Some(solution) = self.preprocess() {
-                return solution;
-            }
-        }
 
         if self.is_trivially_unsat() {
             return None;
@@ -67,6 +59,7 @@ impl Solver {
         let mut restarter = Restarter::init(self.config.restart_policy);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::new(self.state.num_vars);
+        let mut inprocessor = Inprocessor::init();
 
         self.enqueue_initial_units(&mut unit_propagator);
 
@@ -79,7 +72,7 @@ impl Solver {
                 }
                 self.state
                     .clause_database
-                    .delete_clauses_if_neccessary(&mut self.state.literal_watcher, &trail);
+                    .delete_clauses_if_necessary(&mut self.state.literal_watcher, &trail);
 
                 // find conflict clause
                 let (new_clause, assertion_level) = self.clause_learner.analyse_conflict(
@@ -102,6 +95,11 @@ impl Solver {
 
                 heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
+                inprocessor.inprocess(
+                    &mut self.state.clause_database,
+                    &mut self.state.literal_watcher,
+                    &trail,
+                );
             } else if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
@@ -127,20 +125,6 @@ impl Solver {
         None
     }
 
-    /// Preprocesses the clauses and updates the state
-    /// Returns SAT, UNSAT or Nothing
-    fn preprocess(&mut self) -> Option<Solution> {
-        let new_clauses = self.preprocessor.process(self.cnf.clone());
-        if new_clauses.is_none() {
-            return Some(None);
-        }
-        self.cnf = new_clauses.unwrap();
-        if self.cnf.is_empty() {
-            return Some(Some(self.preprocessor.map_solution(HashMap::new())));
-        }
-        None
-    }
-
     fn is_trivially_unsat(&self) -> bool {
         // contains empty clause
         if self.cnf.iter().any(|clause| clause.literals.is_empty()) {
@@ -153,9 +137,17 @@ impl Solver {
             .iter()
             .filter(|clause| clause.literals.len() == 1)
             .map(|clause| clause.literals[0]);
-        let positives : HashSet<VarId> = units.clone().filter(|lit| lit.positive()).map(|lit| lit.id()).collect();
-        let negatives : HashSet<VarId> = units.clone().filter(|lit| !lit.positive()).map(|lit| lit.id()).collect();
-        
+        let positives: HashSet<VarId> = units
+            .clone()
+            .filter(|lit| lit.positive())
+            .map(|lit| lit.id())
+            .collect();
+        let negatives: HashSet<VarId> = units
+            .clone()
+            .filter(|lit| !lit.positive())
+            .map(|lit| lit.id())
+            .collect();
+
         positives.intersection(&negatives).count() > 0
     }
 
@@ -170,12 +162,7 @@ impl Solver {
     }
 
     fn get_solution(&self) -> HashMap<VarId, bool> {
-        if self.config.proof_file.is_none() {
-            self.preprocessor.map_solution(self.state.get_assignment())
-        } else {
-            // No need for backmapping if proof is enabled (and preprocessing disabled)
-            self.state.get_assignment()
-        }
+        self.state.get_assignment()
     }
 
     pub fn stats(&self) -> &StateStatistics {
