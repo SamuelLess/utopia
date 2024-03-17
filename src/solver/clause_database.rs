@@ -1,11 +1,14 @@
 use crate::cnf::{Clause, ClauseId};
 use crate::solver::literal_watching::LiteralWatcher;
 use crate::solver::trail::{AssignmentReason, Trail};
+use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
+use std::fmt::{Debug, Display, Formatter, Write};
 use std::ops::Index;
 use std::ops::IndexMut;
+use std::ptr::write;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ClauseDatabase {
     clauses: Vec<Clause>,
     first_learned_clause_id: ClauseId,
@@ -14,6 +17,15 @@ pub struct ClauseDatabase {
     conflicts_since_last_deletion: usize,
 }
 
+impl Debug for ClauseDatabase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "ClauseDatabase:")?;
+        for clause in &self.clauses {
+            writeln!(f, "LBD: {:?} {:?} ", clause.lbd, clause.literals)?;
+        }
+        writeln!(f, "")
+    }
+}
 pub struct Iter<'a> {
     pos: i32,
     length: usize,

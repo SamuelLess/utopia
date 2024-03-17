@@ -6,7 +6,11 @@ use std::path::Path;
 use crate::cnf::{Clause, Literal, VarId};
 use itertools::Itertools;
 
-pub fn clauses_from_dimacs_file(path: &str) -> Result<Vec<Clause>, String> {
+pub struct DimacsFile {
+    pub num_vars: usize,
+    pub clauses: Vec<Clause>,
+}
+pub fn clauses_from_dimacs_file(path: &str) -> Result<DimacsFile, String> {
     if !Path::new(path).exists() {
         return Err(format!("File {} not found", path));
     }
@@ -24,7 +28,7 @@ pub fn clauses_from_dimacs_file(path: &str) -> Result<Vec<Clause>, String> {
     })
 }
 
-pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
+pub fn clauses_from_dimacs(input: String) -> Result<DimacsFile, String> {
     let mut file_content: Vec<String> = input
         .lines()
         .map(String::from)
@@ -88,6 +92,7 @@ pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
         .map(|clause| clause.iter().map(|lit| lit.id()).max().unwrap_or(0))
         .max()
         .unwrap_or(0);
+
     if var_count_in_clauses != num_vars {
         return Err(format!(
             "Expected {} variables, got {}",
@@ -99,7 +104,8 @@ pub fn clauses_from_dimacs(input: String) -> Result<Vec<Clause>, String> {
         .iter()
         .map(|clause| Clause::from(clause.clone()))
         .collect_vec();
-    Ok(clauses)
+
+    Ok(DimacsFile { clauses, num_vars })
 }
 
 pub fn solution_to_dimacs(solution: Option<HashMap<VarId, bool>>) -> String {

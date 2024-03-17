@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::solver::trail::Assignment;
 
-pub fn check_assignment(clauses: Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
+pub fn check_assignment(clauses: &Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
     clauses.iter().all(|clause| {
         clause.clone().any(|lit| {
             if let Some(assignment_value) = assignment.get(&(lit.id())) {
@@ -140,6 +140,13 @@ impl Clause {
 
     pub fn is_conflict(&self, vars: &[Option<bool>]) -> bool {
         self.literals.iter().all(|lit| lit.is_false(vars))
+    }
+
+    pub fn is_unit(&self, vars: &[Option<bool>]) -> Option<Literal> {
+        if self.is_satisfied() {
+            return None;
+        }
+        self.literals.iter().filter(|p| p.is_).cloned()
     }
 
     pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {

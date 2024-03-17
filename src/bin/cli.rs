@@ -32,10 +32,11 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let cnf = clauses_from_dimacs_file(&args.file).unwrap();
+    let dimacs = clauses_from_dimacs_file(&args.file).unwrap();
 
     let mut solver = Solver::new(
-        cnf.clone(),
+        &dimacs.clauses,
+        dimacs.num_vars,
         Config::new(
             args.heuristic.clone(),
             args.proof.clone(),
@@ -45,7 +46,7 @@ fn main() {
 
     let solution = solver.solve();
 
-    let output = create_output(&args, cnf, &solution, solver.stats());
+    let output = create_output(&args, dimacs.clauses, &solution, solver.stats());
     println!("{}", output);
 }
 
@@ -60,7 +61,7 @@ fn create_output(
     output.push_str(format!("\n{}\n", stats.to_table()).as_str());
     // verify solution
     if let Some(solution) = solution.clone() {
-        if check_assignment(cnf.clone(), solution) {
+        if check_assignment(&cnf, solution) {
             output.push_str("Solution has been verified and is correct\n");
         } else {
             output.push_str("WRONG SOLUTION\n");

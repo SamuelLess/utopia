@@ -27,18 +27,16 @@ use std::collections::{HashMap, HashSet};
 pub struct Solver {
     config: Config,
     state: State,
-    cnf: Vec<Clause>,
     clause_learner: ClauseLearner,
     proof_logger: ProofLogger,
 }
 
 impl Solver {
-    pub fn new(clauses: Vec<Clause>, config: Config) -> Self {
+    pub fn new(clauses: &Vec<Clause>, n_vars: usize, config: Config) -> Self {
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            cnf: clauses.clone(),
-            state: State::init(clauses.clone()),
+            state: State::init(clauses.clone(), n_vars),
             clause_learner,
             proof_logger: ProofLogger::new(config.proof_file.is_some()),
             config,
@@ -51,9 +49,6 @@ impl Solver {
         if self.is_trivially_unsat() {
             return None;
         }
-
-        // The CNF could have been modified by the preprocessor
-        self.state = State::init(self.cnf.clone());
 
         let mut heuristic = self.config.heuristic.create(&self.state);
         let mut restarter = Restarter::init(self.config.restart_policy);
@@ -95,11 +90,7 @@ impl Solver {
 
                 heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
-                inprocessor.inprocess(
-                    &mut self.state.clause_database,
-                    &mut self.state.literal_watcher,
-                    &trail,
-                );
+                inprocessor.inprocess(&mut unit_propagator, &mut self.state, &trail);
             } else if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
@@ -127,16 +118,25 @@ impl Solver {
 
     fn is_trivially_unsat(&self) -> bool {
         // contains empty clause
-        if self.cnf.iter().any(|clause| clause.literals.is_empty()) {
+        if self
+            .state
+            .clause_database
+            .cnf()
+            .iter()
+            .any(|clause| clause.literals.is_empty())
+        {
             return true;
         }
 
         // contains a unit clause and its negation
         let units = self
-            .cnf
+            .state
+            .clause_database
+            .cnf()
             .iter()
             .filter(|clause| clause.literals.len() == 1)
             .map(|clause| clause.literals[0]);
+
         let positives: HashSet<VarId> = units
             .clone()
             .filter(|lit| lit.positive())
@@ -152,7 +152,9 @@ impl Solver {
     }
 
     fn enqueue_initial_units(&self, unit_propagator: &mut UnitPropagator) {
-        self.cnf
+        self.state
+            .clause_database
+            .cnf()
             .iter()
             .enumerate()
             .filter(|(_, clause)| clause.literals.len() == 1)

@@ -132,6 +132,9 @@ impl LiteralWatcher {
     fn create_watches(clauses: &[Clause], num_vars: usize) -> Vec<VarWatch> {
         let mut watches = vec![VarWatch::default(); num_vars + 1];
         for (clause_id, clause) in clauses.iter().enumerate() {
+            if clause.literals.len() == 0 {
+                continue; // skip empty clauses
+            }
             if clause.literals.len() == 1 {
                 continue; // Don't watch unit clauses, they never change
             }

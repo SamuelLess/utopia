@@ -17,21 +17,25 @@ pub struct State {
 }
 
 impl State {
-    pub fn init(clauses: Vec<Clause>) -> Self {
-        let all_vars: HashSet<VarId> = clauses
-            .clone()
+    pub fn init(clauses: Vec<Clause>, n_vars: usize) -> Self {
+        // remove tautologies
+        let relevant_clauses = clauses
             .into_iter()
-            .flatten()
-            .map(|lit| lit.id())
+            .filter(|clause| {
+                !clause
+                    .literals
+                    .iter()
+                    .any(|lit| clause.literals.contains(&-*lit))
+            })
             .collect();
-    
-        let var_count = all_vars.iter().max().unwrap() + 1;
-        let clause_database = ClauseDatabase::init(clauses);
+
+        let var_count = n_vars + 1;
+        let clause_database = ClauseDatabase::init(relevant_clauses);
         State {
             conflict_clause_id: None,
-            vars: vec![None; var_count ],
-            var_phases: vec![true;var_count],
-            literal_watcher: LiteralWatcher::new(clause_database.cnf(), var_count ),
+            vars: vec![None; var_count],
+            var_phases: vec![true; var_count],
+            literal_watcher: LiteralWatcher::new(clause_database.cnf(), var_count),
             stats: StateStatistics::new(clause_database.cnf().len(), var_count),
             clause_database,
             num_vars: var_count,
