@@ -1,57 +1,89 @@
 use crate::cnf::{Clause, ClauseId, Literal, VarId};
-use crate::solver::clause_database::ClauseDatabase;
-use crate::solver::literal_watching::LiteralWatcher;
+use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
+use crate::solver::trail::AssignmentReason;
 use crate::solver::trail::Trail;
 use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub struct Inprocessor {
     conflict_count: usize,
+    bve_reconstruction_data: Vec<(Literal, Clause)>,
 }
 
 impl Inprocessor {
     pub fn init() -> Self {
         Inprocessor {
-            conflict_count: 10000,
+            conflict_count: 10000, /*TODO: conflict_count := 0*/
+            bve_reconstruction_data: vec![],
         }
     }
 
     pub fn inprocess(
         &mut self,
         unit_propagator: &mut UnitPropagator,
+        heuristic: &mut dyn Heuristic,
         state: &mut State,
-        trail: &Trail,
+        trail: &mut Trail,
     ) {
-        if self.conflict_count < 6000 {
-            self.conflict_count += 1;
-            return;
+        // remove all unit-assignments from the trail. This makes adding arbitrary clauses much
+        // easier, as we can re-initalize the trail with the new clauses.
+
+        let units = trail
+            .assignment_stack
+            .iter()
+            .map(|x| {
+                // check preconditions for inprocessing
+                if let AssignmentReason::Forced(clause_id) = x.reason {
+                    if x.decision_level != 0 {
+                        panic!("Inprocessing called at decision level != 0");
+                    }
+                    (x.literal, clause_id)
+                } else {
+                    panic!("Inprocessing called at decision level != 0");
+                }
+            })
+            .collect::<Vec<_>>();
+        trail.backtrack_completely(state, heuristic);
+
+        for (lit, _) in units.iter() {
+            state.unassign(*lit);
         }
-        self.conflict_count = 0;
+
         println!("Inprocessing");
-        println!("CNF Before:");
-        println!("{:?}", state.clause_database);
-        // don't look at this code -- serious risk of brain damage :D
-        let occ = state
+
+        let vars = state
             .clause_database
             .iter()
-            .flat_map(|clause_id| {
-                state.clause_database[clause_id]
-                    .clone()
-                    .map(move |x| (x, clause_id))
-            })
-            .into_group_map();
-
-        let vars = occ.keys().map(|x| x.id()).collect::<HashSet<VarId>>();
+            .flat_map(|clause| state.clause_database[clause].literals.iter())
+            .map(|literal| literal.id())
+            .unique()
+            .collect_vec();
 
         for var in vars {
+            // don't look at this code -- serious risk of brain damage :D
+            let occ = state
+                .clause_database
+                .iter()
+                .flat_map(|clause_id| {
+                    state.clause_database[clause_id]
+                        .clone()
+                        .map(move |x| (x, clause_id))
+                })
+                .into_group_map();
+
             self.bounded_variable_elimination(var, trail, unit_propagator, state, &occ);
         }
+
         println!("CNF After:");
-        println!("{:?}", state.clause_database);
+        // enqueue all units again
+        for (unit_literal, conflict_clause_id) in units {
+            unit_propagator.enqueue(unit_literal, conflict_clause_id);
+        }
     }
 
+    /// BVE based on "Inprocessing Rules" by Matti Järvisalo, Marijn Heule, Armin Biere
     fn bounded_variable_elimination(
         &mut self,
         var_id: VarId,
@@ -60,67 +92,89 @@ impl Inprocessor {
         state: &mut State,
         occ: &HashMap<Literal, Vec<ClauseId>>,
     ) {
-        let mut new_clauses = vec![];
+        let mut resolution_clauses = vec![];
 
-        let empty_vec = vec![];
+        let empty_vec = Vec::new();
 
-        let pos_occ = occ
-            .get(&Literal::from_value(var_id, true))
-            .unwrap_or(&empty_vec);
-        let neg_occ = occ
-            .get(&Literal::from_value(var_id, false))
-            .unwrap_or(&empty_vec);
+        // group occ by 1. pos/neg occ 2. occ in learned/non-learned clauses
+        let group_occ = |sign| {
+            occ.get(&Literal::from_value(var_id, sign))
+                .unwrap_or(&empty_vec)
+        };
+
+        // find all pos_occ and neg_occ
+        let pos_occ = group_occ(true);
+        let neg_occ = group_occ(false);
 
         let num_clauses_before = pos_occ.len() + neg_occ.len();
 
-        let pairs = pos_occ.iter().cartesian_product(neg_occ.iter());
+        // do resolution with the non-learned clauses
+        let pairs = pos_occ
+            .iter()
+            .filter(|clause_id| state.clause_database[**clause_id].lbd.is_none())
+            .cartesian_product(
+                neg_occ
+                    .iter()
+                    .filter(|clause_id| state.clause_database[**clause_id].lbd.is_none()),
+            );
 
         for (clause_1, clause_2) in pairs {
             let c1_iter = state.clause_database[*clause_1].literals.iter();
             let c2_iter = state.clause_database[*clause_2].literals.iter();
 
-            let new_clause = c1_iter.chain(c2_iter).filter(|lit| lit.id() != var_id);
+            let resolution_clause = c1_iter.chain(c2_iter).filter(|lit| lit.id() != var_id);
 
             // deduplicate new_clause
-            let unique = new_clause.unique().collect_vec();
+            let unique = resolution_clause.unique().collect_vec();
 
             // check for tautology
             if unique.len() == unique.iter().map(|lit| lit.id()).unique().count() {
-                new_clauses.push(Clause::from(unique.iter().map(|lit| **lit).collect_vec()));
+                resolution_clauses.push(Clause::from(unique.iter().map(|lit| **lit).collect_vec()));
             }
 
-            if new_clauses.len() >= num_clauses_before {
+            if resolution_clauses.len() >= num_clauses_before {
                 return; // This won't be worthwhile. Abort and don't execute resolution.
             }
         }
 
-        let num_added_clauses = new_clauses.len();
+        // delete old clauses
+        for (any_occ, polarity_in_clause) in [(pos_occ, true), (neg_occ, false)] {
+            for clause_id in any_occ.iter() {
+                // if clause is required then add to bve_reconstruction_data
+                if state.clause_database[*clause_id].lbd.is_none() {
+                    self.bve_reconstruction_data.push((
+                        Literal::from_value(var_id, polarity_in_clause),
+                        state.clause_database[*clause_id].clone(),
+                    ));
+                }
+
+                state.clause_database.delete_clause_if_allowed(
+                    *clause_id,
+                    &mut state.literal_watcher,
+                    trail,
+                );
+            }
+        }
+
+        // add clauses as required clauses
+        for clause in &resolution_clauses {
+            let clause_id = state
+                .clause_database
+                .add_clause(clause.clone(), &mut state.literal_watcher);
+
+            // newly found units have to be enqueued
+            if clause.literals.len() == 1 {
+                unit_propagator.enqueue(clause.literals[0], clause_id);
+            }
+        }
+
+        let num_added_clauses = resolution_clauses.len();
 
         assert!(num_added_clauses <= num_clauses_before);
-
-        // Delete old clauses
-        for clause_id in pos_occ.iter().chain(neg_occ.iter()) {
-            state.clause_database.delete_clause_if_allowed(
-                *clause_id,
-                &mut state.literal_watcher,
-                trail,
-            );
-        }
 
         println!(
             "Resolved {num_clauses_before} clauses for {}",
             num_added_clauses
         );
-
-        for clause in new_clauses {
-            let clause_id = state
-                .clause_database
-                .add_clause(clause, &mut state.literal_watcher);
-
-            // if clause is unit -> enqueue
-            if let Some(literal) = clause.is_unit(&state.vars) {
-                unit_propagator.enqueue(literal, clause_id);
-            }
-        }
     }
 }

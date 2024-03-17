@@ -97,11 +97,6 @@ impl ClauseDatabase {
         literal_watcher: &mut LiteralWatcher,
         trail: &Trail,
     ) {
-        // clauses with lbd = 2 ("glue clauses") should NOT be removed
-        if self.clauses[clause_id].lbd.is_some() && self.clauses[clause_id].lbd.unwrap() <= 2 {
-            return;
-        }
-
         // Clauses that are currently reason clauses may NOT be removed
         let is_reason = trail
             .assignment_stack
@@ -112,6 +107,11 @@ impl ClauseDatabase {
         }
 
         if self.free_clause_ids.contains(&clause_id) {
+            return;
+        }
+
+        // don't delete unit clauses
+        if self.clauses[clause_id].literals.len() < 2 {
             return;
         }
 
@@ -154,6 +154,12 @@ impl ClauseDatabase {
             if let Some(lbd) = self.clauses[clause_id].lbd {
                 if lbd <= threshold {
                     continue;
+                }
+                // clauses with lbd = 2 ("glue clauses") should NOT be removed
+                if self.clauses[clause_id].lbd.is_some()
+                    && self.clauses[clause_id].lbd.unwrap() <= 2
+                {
+                    return;
                 }
 
                 self.delete_clause_if_allowed(clause_id, literal_watcher, trail);

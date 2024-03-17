@@ -90,13 +90,19 @@ impl Solver {
 
                 heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
-                inprocessor.inprocess(&mut unit_propagator, &mut self.state, &trail);
             } else if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution());
             } else if restarter.check_if_restart_necessary() {
                 self.state.stats.num_restarts += 1;
                 trail.restart(&mut self.state, heuristic.as_mut());
+
+                inprocessor.inprocess(
+                    &mut unit_propagator,
+                    heuristic.as_mut(),
+                    &mut self.state,
+                    &mut trail,
+                );
             } else {
                 let next_var = heuristic.next(&self.state.vars);
                 let next_literal = Literal::from_value(next_var, self.state.var_phases[next_var]);

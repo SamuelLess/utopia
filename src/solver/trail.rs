@@ -74,6 +74,17 @@ impl Trail {
         state.assign(assignment.into(), unit_propagator);
     }
 
+    /// Backtracks completely, including the unit clause forced assignments
+    /// This is necessary for inprocessing
+    pub fn backtrack_completely(&mut self, state: &mut State, heuristic: &mut dyn Heuristic) {
+        while let Some(assignment) = self.assignment_stack.pop() {
+            state.unassign(assignment.literal);
+            heuristic.unassign(&assignment);
+        }
+        self.decision_level = 0;
+        state.conflict_clause_id = None;
+    }
+
     /// Backtrack to the last heuristic assignment
     /// and forces it to be the opposite value
     /// returns the forced assignment or none (implies unsat)

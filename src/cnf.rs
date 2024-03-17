@@ -142,13 +142,6 @@ impl Clause {
         self.literals.iter().all(|lit| lit.is_false(vars))
     }
 
-    pub fn is_unit(&self, vars: &[Option<bool>]) -> Option<Literal> {
-        if self.is_satisfied() {
-            return None;
-        }
-        self.literals.iter().filter(|p| p.is_).cloned()
-    }
-
     pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {
         self.blocking_literal.is_true(vars)
     }
