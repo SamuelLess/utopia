@@ -10,6 +10,8 @@ use std::collections::HashMap;
 pub struct Inprocessor {
     conflict_count: usize,
     bve_reconstruction_data: Vec<(Literal, Clause)>,
+    start_time: std::time::Instant,
+    total_time: std::time::Duration,
 }
 
 impl Inprocessor {
@@ -17,6 +19,8 @@ impl Inprocessor {
         Inprocessor {
             conflict_count: 10000, /*TODO: conflict_count := 0*/
             bve_reconstruction_data: vec![],
+            start_time: std::time::Instant::now(),
+            total_time: std::time::Duration::from_secs(0),
         }
     }
 
@@ -27,6 +31,7 @@ impl Inprocessor {
         state: &mut State,
         trail: &mut Trail,
     ) {
+        return;
         // remove all unit-assignments from the trail. This makes adding arbitrary clauses much
         // easier, as we can re-initalize the trail with the new clauses.
 
@@ -176,5 +181,13 @@ impl Inprocessor {
             "Resolved {num_clauses_before} clauses for {}",
             num_added_clauses
         );
+    }
+
+    pub fn stop_timing(&mut self) {
+        self.total_time += self.start_time.elapsed();
+    }
+
+    pub fn start_timing(&mut self) {
+        self.start_time = std::time::Instant::now();
     }
 }

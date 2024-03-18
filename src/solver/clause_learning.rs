@@ -88,10 +88,7 @@ impl ClauseLearner {
         let assertion_level = learned_clause
             .clone()
             .iter()
-            .map(|lit| {
-                trail
-                    .var_decision_level[lit.id()]
-            })
+            .map(|lit| trail.var_decision_level[lit.id()])
             .sorted()
             .rev()
             .nth(1)
@@ -109,6 +106,10 @@ impl ClauseLearner {
 
         assert!(assertion_level < trail.decision_level);
 
+        // TODO: can first and second literal also be minimized??
+        // TODO: where should conflict_clause_minimization be called?
+        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
+
         // calculate lbd
         let lbd = learned_clause
             .iter()
@@ -119,6 +120,58 @@ impl ClauseLearner {
             Clause::from_literals_and_lbd(learned_clause, lbd),
             assertion_level,
         )
+    }
+
+    /// Conflict clause minimization based on Minisat v. 1.13
+    fn conflict_clause_minimization(
+        &self,
+        clause: &mut Vec<Literal>,
+        clause_database: &ClauseDatabase,
+        trail: &Trail,
+    ) {
+        println!("Called conflict clause minimization");
+        let relevant_reasons = trail
+            .assignment_stack
+            .iter()
+            .filter(|assignment| clause.contains(&-assignment.literal))
+            .filter_map(|assignment| match assignment.reason {
+                AssignmentReason::Forced(reason) => Some((assignment.literal, reason)),
+                _ => None,
+            })
+            .into_group_map_by(|(lit, _)| *lit);
+
+        let mut marked = Vec::new();
+        let clause_set: HashSet<Literal> = HashSet::from_iter(clause.clone());
+        for lit in clause.clone() {
+            // assert!(reasons.get(&-lit).is_some());
+
+            if let Some(reasons) = relevant_reasons.get(&-lit) {
+                let reason_clause_id = reasons[0].1;
+                let reason_clause = &clause_database[reason_clause_id];
+
+                // TODO: why do we even remove lit? lit is in clause anyway
+                let reason_clause_without_lit: HashSet<Literal> =
+                    HashSet::from_iter(reason_clause.literals.iter().filter_map(|l| {
+                        if *l != lit {
+                            Some(*l)
+                        } else {
+                            None
+                        }
+                    }));
+
+                println!(
+                    "reason(-p)/p: {:?} clause:  {:?} literal: {}",
+                    reason_clause_without_lit, clause_set, lit
+                );
+
+                if reason_clause_without_lit.is_subset(&clause_set) {
+                    marked.push(lit);
+                }
+            }
+        }
+
+        // assert_eq!(marked.len(), 0);
+        clause.retain(|lit| !marked.contains(lit));
     }
 }
 
