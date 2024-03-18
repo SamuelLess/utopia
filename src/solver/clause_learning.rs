@@ -3,6 +3,8 @@ use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::ops::Neg;
+use crate::solver::trail::AssignmentReason::Forced;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
@@ -108,8 +110,10 @@ impl ClauseLearner {
 
         // TODO: can first and second literal also be minimized??
         // TODO: where should conflict_clause_minimization be called?
-        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
 
+        let len_before = learned_clause.len();
+        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
+        //println!("shrunk: {} -> {}", len_before, learned_clause.len());
         // calculate lbd
         let lbd = learned_clause
             .iter()
@@ -129,40 +133,34 @@ impl ClauseLearner {
         clause_database: &ClauseDatabase,
         trail: &Trail,
     ) {
-        println!("Called conflict clause minimization");
-        let relevant_reasons = trail
-            .assignment_stack
-            .iter()
-            .filter(|assignment| clause.contains(&-assignment.literal))
-            .filter_map(|assignment| match assignment.reason {
-                AssignmentReason::Forced(reason) => Some((assignment.literal, reason)),
-                _ => None,
-            })
-            .into_group_map_by(|(lit, _)| *lit);
 
         let mut marked = Vec::new();
         let clause_set: HashSet<Literal> = HashSet::from_iter(clause.clone());
-        for lit in clause.clone() {
-            // assert!(reasons.get(&-lit).is_some());
 
-            if let Some(reasons) = relevant_reasons.get(&-lit) {
-                let reason_clause_id = reasons[0].1;
-                let reason_clause = &clause_database[reason_clause_id];
+        let all_literals = clause.clone();
+        for lit in all_literals.iter().skip(2) {
+
+            let reason = &trail.assignment_stack.iter().find(|assignment| assignment.literal == -*lit).unwrap().reason;
+            if let Forced(reason_clause_id) = reason {
+                // let reason_clause_id = reasons[0].1;
+                let reason_clause = &clause_database[*reason_clause_id];
 
                 // TODO: why do we even remove lit? lit is in clause anyway
                 let reason_clause_without_lit: HashSet<Literal> =
                     HashSet::from_iter(reason_clause.literals.iter().filter_map(|l| {
-                        if *l != lit {
+                        if *l != -*lit {
                             Some(*l)
                         } else {
                             None
                         }
                     }));
 
+                /*
                 println!(
                     "reason(-p)/p: {:?} clause:  {:?} literal: {}",
                     reason_clause_without_lit, clause_set, lit
                 );
+                */
 
                 if reason_clause_without_lit.is_subset(&clause_set) {
                     marked.push(lit);
@@ -170,9 +168,12 @@ impl ClauseLearner {
             }
         }
 
+        //println!("marked contains {}", marked.len());
         // assert_eq!(marked.len(), 0);
-        clause.retain(|lit| !marked.contains(lit));
+        clause.retain(|lit| !marked.contains(&lit));
     }
+
+    //manol-pipe-g6bi.cnf
 }
 
 #[cfg(test)]
