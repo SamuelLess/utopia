@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{arg, Parser};
 use std::collections::HashMap;
 use utopia::cnf::{check_assignment, Clause, VarId};
 use utopia::dimacs::{clauses_from_dimacs_file, solution_to_dimacs};
@@ -27,6 +27,9 @@ struct Args {
 
     #[arg(short, long, default_value = "glucose-ema")]
     restart_policy: RestartPolicy,
+
+    #[arg(long, default_value = "false")]
+    no_inprocessing: bool
 }
 
 fn main() {
@@ -41,6 +44,7 @@ fn main() {
             args.heuristic.clone(),
             args.proof.clone(),
             args.restart_policy,
+            !args.no_inprocessing,
         ),
     );
 

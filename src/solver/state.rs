@@ -29,16 +29,15 @@ impl State {
             })
             .collect();
 
-        let var_count = n_vars + 1;
         let clause_database = ClauseDatabase::init(relevant_clauses);
         State {
             conflict_clause_id: None,
-            vars: vec![None; var_count],
-            var_phases: vec![true; var_count],
-            literal_watcher: LiteralWatcher::new(clause_database.cnf(), var_count),
-            stats: StateStatistics::new(clause_database.cnf().len(), var_count),
+            vars: vec![None; n_vars + 1],
+            var_phases: vec![true; n_vars + 1],
+            literal_watcher: LiteralWatcher::new(clause_database.cnf(), n_vars),
+            stats: StateStatistics::new(clause_database.cnf().len(), n_vars),
             clause_database,
-            num_vars: var_count,
+            num_vars: n_vars,
         }
     }
 
@@ -108,7 +107,7 @@ impl State {
         result
     }
 
-    /*
+    
     /// Verifies the watched literal invariant.
     /// Every unsatisfied clause has at least one watched literal
     /// that is non-false. If exactly one is non-false, it is
@@ -117,14 +116,14 @@ impl State {
     /// the next steps either disregard the clause or both
     /// watched literals are non-false again.
     pub fn verify_watches(&mut self) {
-        for clause in self.clauses.iter() {
-            if clause.is_satisfied(&self.vars) {
+        for clause in self.clause_database.iter() {
+            if self.clause_database[clause].is_satisfied(&self.vars) {
                 continue;
             }
-            if clause.literals.len() == 1 {
+            if self.clause_database[clause].literals.len() == 1 {
                 continue;
             }
-            let watches = &clause.literals[0..2];
+            let watches = &self.clause_database[clause].literals[0..2];
             let zero = self.vars[watches[0].id()].is_none()
                 || self.vars[watches[0].id()] == Some(watches[0].positive());
             let one = self.vars[watches[1].id()].is_none()
@@ -132,18 +131,18 @@ impl State {
             assert!(zero || one || self.conflict_clause_id.is_some());
         }
 
-        for (clause_id, clause) in self.clauses.iter().enumerate() {
-            if clause.literals.len() == 1 {
+        for clause_id in self.clause_database.iter() {
+            if self.clause_database[clause_id].literals.len() == 1 {
                 continue;
             }
-            for lit in &clause.literals[0..2] {
+            for lit in &self.clause_database[clause_id].literals[0..2] {
                 assert!(self
                     .literal_watcher
                     .affected_clauses(-*lit)
-                    .contains(&clause_id));
+                    .contains(&clause_id), "Clause {} is not watched by {}", clause_id, lit);
             }
         }
-    }*/
+    }
 }
 
 #[cfg(test)]

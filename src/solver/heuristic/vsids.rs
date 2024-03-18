@@ -1,5 +1,6 @@
 use ordered_float::NotNan;
 use priority_queue::PriorityQueue;
+use std::env::var;
 
 use crate::cnf::{Clause, VarId};
 use crate::solver::heuristic::Heuristic;
@@ -20,6 +21,9 @@ impl HeuristicVSIDS {
         // divide everything by factor
         for priority in &mut self.priorities {
             *priority = NotNan::new(priority.into_inner() / factor).unwrap();
+            if *priority == 0.0 {
+                *priority = NotNan::new(f64::MIN_POSITIVE).unwrap();
+            }
         }
         // change conflict index, such that BUMP_FACTOR^conflict_index gets divided by factor
         // g^i_new = g^i_old / factor
@@ -62,8 +66,8 @@ impl Heuristic for HeuristicVSIDS {
 
             let mut increase = BUMP_BASIS.powi(self.conflict_index as i32);
             let new_priority = self.priorities[var_id].into_inner() + increase;
-            if new_priority.is_infinite() {
-                self.rescale(self.priorities[var_id].into_inner());
+            if new_priority > 10000000.0 {
+                self.rescale(10000000.0);
                 increase = BUMP_BASIS.powi(self.conflict_index as i32);
             }
 
@@ -73,8 +77,21 @@ impl Heuristic for HeuristicVSIDS {
         }
     }
 
+
     fn next(&mut self, vars: &[Option<bool>]) -> VarId {
         loop {
+            if self.order.is_empty() {
+                // Oh no...
+                println!("No unassigned variable found");
+                // check if the heuristic is in sync with the var state
+                println!("Checking sync of vars and heuristic");
+                for (var_id, value) in vars.iter().enumerate() {
+                    if value.is_none() && var_id != 0{
+                        println!("Var {} is unassigned, but not in the heuristic", var_id);
+                    }
+                }
+                panic!("");
+            }
             let (var_id, _) = self.order.pop().expect("No unassigned variable found");
             if vars[var_id].is_none() {
                 return var_id;

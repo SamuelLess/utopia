@@ -5,6 +5,7 @@ pub struct Config {
     pub heuristic: HeuristicType,
     pub restart_policy: RestartPolicy,
     pub proof_file: Option<String>,
+    pub inprocessing: bool,
 }
 
 impl Config {
@@ -12,11 +13,13 @@ impl Config {
         heuristic: HeuristicType,
         proof_file: Option<String>,
         restart_policy: RestartPolicy,
+        inprocessing: bool,
     ) -> Self {
         Config {
             heuristic,
             proof_file,
             restart_policy,
+            inprocessing,
         }
     }
 }
@@ -28,6 +31,7 @@ impl Default for Config {
             heuristic: HeuristicType::VSIDS,
             proof_file: None,
             restart_policy: RestartPolicy::GlucoseEma,
+            inprocessing: true,
         }
     }
 }

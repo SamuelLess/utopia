@@ -41,6 +41,7 @@ impl<'a> Iterator for Iter<'a> {
             if self.pos >= self.length as i32 {
                 return None;
             }
+
             if self
                 .free_clause_ids
                 .binary_search(&(self.pos as ClauseId))
@@ -49,7 +50,6 @@ impl<'a> Iterator for Iter<'a> {
                 break;
             }
         }
-
         Some(self.pos as ClauseId)
     }
 }

@@ -1,10 +1,10 @@
 use crate::cnf::{Clause, ClauseId, Literal};
 use crate::solver::clause_database::ClauseDatabase;
+use crate::solver::trail::AssignmentReason::Forced;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::ops::Neg;
-use crate::solver::trail::AssignmentReason::Forced;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
@@ -133,14 +133,17 @@ impl ClauseLearner {
         clause_database: &ClauseDatabase,
         trail: &Trail,
     ) {
-
         let mut marked = Vec::new();
         let clause_set: HashSet<Literal> = HashSet::from_iter(clause.clone());
 
         let all_literals = clause.clone();
         for lit in all_literals.iter().skip(2) {
-
-            let reason = &trail.assignment_stack.iter().find(|assignment| assignment.literal == -*lit).unwrap().reason;
+            let reason = &trail
+                .assignment_stack
+                .iter()
+                .find(|assignment| assignment.literal == -*lit)
+                .unwrap()
+                .reason;
             if let Forced(reason_clause_id) = reason {
                 // let reason_clause_id = reasons[0].1;
                 let reason_clause = &clause_database[*reason_clause_id];

@@ -38,6 +38,7 @@ SOLVERS = {
     'arcane-clause-len': [ARCANE_BIN_PATH, "--heuristic", "clause-len"],
     'arcane-static-occ': [ARCANE_BIN_PATH, "--heuristic", "static-occ"],
     'utopia': [UTOPIA_BIN_PATH],
+    'utopia-no-inprocessing': [UTOPIA_BIN_PATH, "--no-inprocessing"],
     'utopia-proof': [UTOPIA_BIN_PATH, "--proof", "out.proof"],
     'utopia-fixed-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "fixed-interval"],
     'utopia-geometric-restarts': [UTOPIA_BIN_PATH, "--restart-policy", "geometric"],

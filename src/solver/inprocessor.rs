@@ -5,35 +5,61 @@ use crate::solver::trail::AssignmentReason;
 use crate::solver::trail::Trail;
 use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+
+const INPROCESSING_RATIO: f64 = 0.15;
 
 pub struct Inprocessor {
     conflict_count: usize,
     bve_reconstruction_data: Vec<(Literal, Clause)>,
-    start_time: std::time::Instant,
-    total_time: std::time::Duration,
+    initialization_time: std::time::Instant,
+    total_inprocessing_time: std::time::Duration,
+    current_inprocessing_start: std::time::Instant,
+    bve_queue: VecDeque<VarId>,
 }
 
 impl Inprocessor {
-    pub fn init() -> Self {
+    pub fn init(cnf: &[Clause]) -> Self {
+        let start_time = std::time::Instant::now();
+        let vars_ordered_by_occurences = cnf
+            .iter()
+            .flat_map(|clause| clause.literals.iter())
+            .map(|literal| literal.id())
+            .counts()
+            .iter()
+            .sorted_by_cached_key(|(_, &count)| count)
+            .map(|(var, _)| *var)
+            .collect::<VecDeque<VarId>>();
+
+        println!(
+            "Ordered vars in {} ms",
+            start_time.elapsed().as_secs_f64() / 1000.0
+        );
+
         Inprocessor {
             conflict_count: 10000, /*TODO: conflict_count := 0*/
             bve_reconstruction_data: vec![],
-            start_time: std::time::Instant::now(),
-            total_time: std::time::Duration::from_secs(0),
+            initialization_time: std::time::Instant::now(),
+            total_inprocessing_time: std::time::Duration::from_secs(0),
+            current_inprocessing_start: std::time::Instant::now(),
+            bve_queue: vars_ordered_by_occurences,
         }
     }
 
-    pub fn inprocess(
+    pub fn start_inprocessing(
         &mut self,
-        unit_propagator: &mut UnitPropagator,
-        heuristic: &mut dyn Heuristic,
-        state: &mut State,
         trail: &mut Trail,
-    ) {
-        return;
-        // remove all unit-assignments from the trail. This makes adding arbitrary clauses much
-        // easier, as we can re-initalize the trail with the new clauses.
+        state: &mut State,
+        heuristic: &mut dyn Heuristic,
+    ) -> Vec<(Literal, ClauseId)> {
+        self.current_inprocessing_start = std::time::Instant::now();
+
+        assert_eq!(
+            trail.decision_level, 0,
+            "Inprocessing called at decision level != 0"
+        );
+
+        println!("Starting inprocessing");
 
         let units = trail
             .assignment_stack
@@ -56,17 +82,61 @@ impl Inprocessor {
             state.unassign(*lit);
         }
 
-        println!("Inprocessing");
+        units
+    }
 
-        let vars = state
-            .clause_database
-            .iter()
-            .flat_map(|clause| state.clause_database[clause].literals.iter())
-            .map(|literal| literal.id())
-            .unique()
-            .collect_vec();
+    pub fn end_inprocessing(
+        &mut self,
+        units: Vec<(Literal, ClauseId)>,
+        unit_propagator: &mut UnitPropagator,
+    ) {
+        // enqueue all units again
+        for (unit_literal, conflict_clause_id) in units {
+            unit_propagator.enqueue(unit_literal, conflict_clause_id);
+        }
 
-        for var in vars {
+        println!(
+            "Inprocessing took {} ms",
+            self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0
+        );
+        println!(
+            "Total inprocessing time: {} ms",
+            self.total_inprocessing_time.as_secs_f64() * 1000.0
+        );
+        println!(
+            "Total time: {} ms",
+            self.initialization_time.elapsed().as_secs_f64() * 1000.0
+        );
+
+        self.total_inprocessing_time += self.current_inprocessing_start.elapsed();
+    }
+
+    pub fn should_interrupt(&self) -> bool {
+        (self.total_inprocessing_time + self.current_inprocessing_start.elapsed()).as_secs_f64()
+            > self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
+    }
+
+    pub fn should_start_inprocessing(&self) -> bool {
+        self.total_inprocessing_time.as_secs_f64() + 0.1
+            < self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
+    }
+
+    pub fn inprocess(
+        &mut self,
+        unit_propagator: &mut UnitPropagator,
+        heuristic: &mut dyn Heuristic,
+        state: &mut State,
+        trail: &mut Trail,
+    ) {
+        if !self.should_start_inprocessing() {
+            return;
+        }
+
+        // remove all unit-assignments from the trail. This makes adding arbitrary clauses much
+        // easier, as we can re-initalize the trail with the new clauses.
+        let units = self.start_inprocessing(trail, state, heuristic);
+
+        while let Some(var) = self.bve_queue.pop_front() {
             // don't look at this code -- serious risk of brain damage :D
             let occ = state
                 .clause_database
@@ -79,16 +149,19 @@ impl Inprocessor {
                 .into_group_map();
 
             self.bounded_variable_elimination(var, trail, unit_propagator, state, &occ);
+
+            if self.should_interrupt() {
+                break;
+            }
         }
 
-        println!("CNF After:");
-        // enqueue all units again
-        for (unit_literal, conflict_clause_id) in units {
-            unit_propagator.enqueue(unit_literal, conflict_clause_id);
-        }
+        self.end_inprocessing(units, unit_propagator);
     }
 
-    /// BVE based on "Inprocessing Rules" by Matti Järvisalo, Marijn Heule, Armin Biere
+    /// Reconstruction as described in M. Järvisalo, M. J. H. Heule, and A. Biere,
+    /// “Inprocessing Rules,” in Automated Reasoning, vol. 7364, B. Gramlich, D. Miller,
+    /// and U. Sattler, Eds., Berlin, Heidelberg: Springer Berlin Heidelberg, 2012, pp. 355–370.
+    /// doi: 10.1007/978-3-642-31365-3_28.
     fn bounded_variable_elimination(
         &mut self,
         var_id: VarId,
@@ -158,17 +231,21 @@ impl Inprocessor {
                     &mut state.literal_watcher,
                     trail,
                 );
+                //state.verify_watches();
+
             }
         }
 
         // add clauses as required clauses
         for clause in &resolution_clauses {
+            
             let clause_id = state
                 .clause_database
                 .add_clause(clause.clone(), &mut state.literal_watcher);
-
+            
             // newly found units have to be enqueued
             if clause.literals.len() == 1 {
+                println!("Enqueued newly generated unit");
                 unit_propagator.enqueue(clause.literals[0], clause_id);
             }
         }
@@ -183,11 +260,24 @@ impl Inprocessor {
         );
     }
 
-    pub fn stop_timing(&mut self) {
-        self.total_time += self.start_time.elapsed();
-    }
+    /// Reconstruction as described in M. Järvisalo, M. J. H. Heule, and A. Biere,
+    /// “Inprocessing Rules,” in Automated Reasoning, vol. 7364, B. Gramlich, D. Miller,
+    /// and U. Sattler, Eds., Berlin, Heidelberg: Springer Berlin Heidelberg, 2012, pp. 355–370.
+    /// doi: 10.1007/978-3-642-31365-3_28.
+    pub fn reconstruct_solution(&mut self, solution: &mut HashMap<VarId, bool>) {
+        while let Some((literal, clause)) = self.bve_reconstruction_data.pop() {
+            let clause_is_sat = clause
+                .literals
+                .iter()
+                .any(|lit| *solution.get(&(lit.id())).unwrap() == (lit.positive()));
 
-    pub fn start_timing(&mut self) {
-        self.start_time = std::time::Instant::now();
+            if !clause_is_sat {
+                if literal.positive() {
+                    solution.insert(literal.id(), true);
+                } else {
+                    solution.insert(literal.id(), false);
+                }
+            }
+        }
     }
 }

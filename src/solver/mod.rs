@@ -54,13 +54,14 @@ impl Solver {
         let mut restarter = Restarter::init(self.config.restart_policy);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::new(self.state.num_vars);
-        let mut inprocessor = Inprocessor::init();
+        let mut inprocessor = Inprocessor::init(self.state.clause_database.cnf());
 
         self.enqueue_initial_units(&mut unit_propagator);
 
         loop {
             unit_propagator.propagate(&mut self.state, &mut trail);
 
+            //self.state.verify_watches();
             if let Some(conflict_clause_id) = self.state.conflict_clause_id {
                 if trail.decision_level == 0 {
                     break;
@@ -92,17 +93,18 @@ impl Solver {
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
             } else if self.state.is_satisfied() {
                 self.state.stats.stop_timing();
-                return Some(self.get_solution());
+                return Some(self.get_solution(&mut inprocessor));
             } else if restarter.check_if_restart_necessary() {
                 self.state.stats.num_restarts += 1;
                 trail.restart(&mut self.state, heuristic.as_mut());
-
-                inprocessor.inprocess(
-                    &mut unit_propagator,
-                    heuristic.as_mut(),
-                    &mut self.state,
-                    &mut trail,
-                );
+                if self.config.inprocessing{
+                    inprocessor.inprocess(
+                        &mut unit_propagator,
+                        heuristic.as_mut(),
+                        &mut self.state,
+                        &mut trail,
+                    );
+                }
             } else {
                 let next_var = heuristic.next(&self.state.vars);
                 let next_literal = Literal::from_value(next_var, self.state.var_phases[next_var]);
@@ -169,8 +171,18 @@ impl Solver {
             })
     }
 
-    fn get_solution(&self) -> HashMap<VarId, bool> {
-        self.state.get_assignment()
+    fn get_solution(&self, inprocessor: &mut Inprocessor) -> HashMap<VarId, bool> {
+        let mut assignment = self.state.get_assignment();
+        for var in 1..=self.state.num_vars {
+            if !assignment.contains_key(&var) {
+                assignment.insert(var, true);
+            }
+        }
+        if self.config.inprocessing {
+            inprocessor.reconstruct_solution(&mut assignment);
+        
+        }
+        assignment
     }
 
     pub fn stats(&self) -> &StateStatistics {
