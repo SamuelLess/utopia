@@ -1,18 +1,16 @@
 use crate::cnf::{Clause, ClauseId};
 use crate::solver::literal_watching::LiteralWatcher;
 use crate::solver::trail::{AssignmentReason, Trail};
-use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::collections::BTreeSet;
+use std::fmt::{Debug, Formatter};
 use std::ops::Index;
 use std::ops::IndexMut;
-use std::ptr::write;
 
 #[derive(Clone)]
 pub struct ClauseDatabase {
     clauses: Vec<Clause>,
-    first_learned_clause_id: ClauseId,
-    free_clause_ids: Vec<ClauseId>,
+    free_clause_ids: BTreeSet<ClauseId>,
     num_deletions: usize,
     conflicts_since_last_deletion: usize,
 }
@@ -28,8 +26,8 @@ impl Debug for ClauseDatabase {
 }
 pub struct Iter<'a> {
     pos: i32,
-    length: usize,
-    free_clause_ids: &'a Vec<ClauseId>,
+    clause_database: &'a ClauseDatabase,
+    necessary_clauses_only: bool,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -38,39 +36,44 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             self.pos += 1;
-            if self.pos >= self.length as i32 {
+            if self.pos >= self.clause_database.clauses.len() as i32 {
                 return None;
             }
 
             if self
+                .clause_database
                 .free_clause_ids
-                .binary_search(&(self.pos as ClauseId))
-                .is_err()
+                .contains(&(self.pos as ClauseId))
             {
-                break;
+                continue;
             }
+
+            if self.necessary_clauses_only
+                && self.clause_database.clauses[self.pos as usize]
+                    .lbd
+                    .is_some()
+            {
+                continue;
+            }
+
+            break;
         }
         Some(self.pos as ClauseId)
     }
 }
 impl ClauseDatabase {
-    pub fn init(clauses: Vec<Clause>) -> Self {
+    pub fn init(clauses: &[Clause]) -> Self {
         ClauseDatabase {
-            free_clause_ids: vec![],
-            first_learned_clause_id: clauses.len(),
-            clauses,
+            free_clause_ids: BTreeSet::new(),
+            clauses: clauses.to_vec(),
             num_deletions: 0,
             conflicts_since_last_deletion: 0,
         }
     }
 
-    pub fn cnf(&self) -> &[Clause] {
-        &self.clauses[0..self.first_learned_clause_id]
-    }
-
     pub fn add_clause(&mut self, clause: Clause, literal_watcher: &mut LiteralWatcher) -> ClauseId {
         let id = if !self.free_clause_ids.is_empty() {
-            let id = self.free_clause_ids.pop().unwrap();
+            let id = self.free_clause_ids.pop_first().unwrap();
             self.clauses[id] = clause;
             id
         } else {
@@ -85,9 +88,16 @@ impl ClauseDatabase {
 
     pub fn iter(&self) -> Iter {
         Iter {
-            length: self.clauses.len(),
             pos: -1,
-            free_clause_ids: &self.free_clause_ids,
+            clause_database: self,
+            necessary_clauses_only: false,
+        }
+    }
+    pub fn necessary_clauses_iter(&self) -> Iter {
+        Iter {
+            pos: -1,
+            clause_database: self,
+            necessary_clauses_only: true,
         }
     }
 
@@ -116,8 +126,7 @@ impl ClauseDatabase {
         }
 
         literal_watcher.delete_clause(&self.clauses[clause_id], clause_id);
-        self.free_clause_ids.push(clause_id);
-        self.free_clause_ids.sort_unstable();
+        self.free_clause_ids.insert(clause_id);
     }
 
     pub fn delete_clauses_if_necessary(
@@ -165,7 +174,6 @@ impl ClauseDatabase {
                 self.delete_clause_if_allowed(clause_id, literal_watcher, trail);
             }
         }
-        self.free_clause_ids.sort();
     }
 }
 
@@ -173,12 +181,20 @@ impl Index<ClauseId> for ClauseDatabase {
     type Output = Clause;
 
     fn index(&self, index: ClauseId) -> &Self::Output {
+        debug_assert!(
+            !self.free_clause_ids.contains(&index),
+            "Accessing deleted clause"
+        );
         &self.clauses[index]
     }
 }
 
 impl IndexMut<ClauseId> for ClauseDatabase {
     fn index_mut(&mut self, index: ClauseId) -> &mut Self::Output {
+        debug_assert!(
+            !self.free_clause_ids.contains(&index),
+            "Accessing deleted clause"
+        );
         &mut self.clauses[index]
     }
 }

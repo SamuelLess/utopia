@@ -1,6 +1,5 @@
 use ordered_float::NotNan;
 use priority_queue::PriorityQueue;
-use std::env::var;
 
 use crate::cnf::{Clause, VarId};
 use crate::solver::heuristic::Heuristic;
@@ -77,7 +76,6 @@ impl Heuristic for HeuristicVSIDS {
         }
     }
 
-
     fn next(&mut self, vars: &[Option<bool>]) -> VarId {
         loop {
             if self.order.is_empty() {
@@ -86,7 +84,7 @@ impl Heuristic for HeuristicVSIDS {
                 // check if the heuristic is in sync with the var state
                 println!("Checking sync of vars and heuristic");
                 for (var_id, value) in vars.iter().enumerate() {
-                    if value.is_none() && var_id != 0{
+                    if value.is_none() && var_id != 0 {
                         println!("Var {} is unassigned, but not in the heuristic", var_id);
                     }
                 }

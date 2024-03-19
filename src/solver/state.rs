@@ -3,7 +3,8 @@ use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::literal_watching::{LiteralWatcher, WatchUpdate};
 use crate::solver::statistics::StateStatistics;
 use crate::solver::unit_propagation::UnitPropagator;
-use std::collections::{HashMap, HashSet};
+use itertools::Itertools;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -20,6 +21,7 @@ impl State {
     pub fn init(clauses: Vec<Clause>, n_vars: usize) -> Self {
         // remove tautologies
         let relevant_clauses = clauses
+            .clone()
             .into_iter()
             .filter(|clause| {
                 !clause
@@ -27,16 +29,15 @@ impl State {
                     .iter()
                     .any(|lit| clause.literals.contains(&-*lit))
             })
-            .collect();
+            .collect_vec();
 
-        let clause_database = ClauseDatabase::init(relevant_clauses);
         State {
             conflict_clause_id: None,
             vars: vec![None; n_vars + 1],
             var_phases: vec![true; n_vars + 1],
-            literal_watcher: LiteralWatcher::new(clause_database.cnf(), n_vars),
-            stats: StateStatistics::new(clause_database.cnf().len(), n_vars),
-            clause_database,
+            literal_watcher: LiteralWatcher::new(&relevant_clauses, n_vars),
+            stats: StateStatistics::new(relevant_clauses.len(), n_vars),
+            clause_database: ClauseDatabase::init(relevant_clauses.as_ref()),
             num_vars: n_vars,
         }
     }
@@ -92,9 +93,8 @@ impl State {
 
     pub fn is_satisfied(&self) -> bool {
         self.clause_database
-            .cnf()
-            .iter()
-            .all(|clause| clause.is_satisfied(&self.vars))
+            .necessary_clauses_iter()
+            .all(|clause_id| self.clause_database[clause_id].is_satisfied(&self.vars))
     }
 
     pub fn get_assignment(&self) -> HashMap<VarId, bool> {
@@ -107,7 +107,6 @@ impl State {
         result
     }
 
-    
     /// Verifies the watched literal invariant.
     /// Every unsatisfied clause has at least one watched literal
     /// that is non-false. If exactly one is non-false, it is
@@ -136,10 +135,14 @@ impl State {
                 continue;
             }
             for lit in &self.clause_database[clause_id].literals[0..2] {
-                assert!(self
-                    .literal_watcher
-                    .affected_clauses(-*lit)
-                    .contains(&clause_id), "Clause {} is not watched by {}", clause_id, lit);
+                assert!(
+                    self.literal_watcher
+                        .affected_clauses(-*lit)
+                        .contains(&clause_id),
+                    "Clause {} is not watched by {}",
+                    clause_id,
+                    lit
+                );
             }
         }
     }

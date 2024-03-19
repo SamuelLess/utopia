@@ -29,7 +29,7 @@ struct Args {
     restart_policy: RestartPolicy,
 
     #[arg(long, default_value = "false")]
-    no_inprocessing: bool
+    no_inprocessing: bool,
 }
 
 fn main() {

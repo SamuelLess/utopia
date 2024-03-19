@@ -9,8 +9,10 @@ use std::collections::{HashMap, VecDeque};
 
 const INPROCESSING_RATIO: f64 = 0.15;
 
+const DETERMINISTIC: bool = false;
+// sat/ii32b4.cnf
+
 pub struct Inprocessor {
-    conflict_count: usize,
     bve_reconstruction_data: Vec<(Literal, Clause)>,
     initialization_time: std::time::Instant,
     total_inprocessing_time: std::time::Duration,
@@ -19,7 +21,7 @@ pub struct Inprocessor {
 }
 
 impl Inprocessor {
-    pub fn init(cnf: &[Clause]) -> Self {
+    pub fn init(cnf: &Vec<Clause>) -> Self {
         let start_time = std::time::Instant::now();
         let vars_ordered_by_occurences = cnf
             .iter()
@@ -27,7 +29,7 @@ impl Inprocessor {
             .map(|literal| literal.id())
             .counts()
             .iter()
-            .sorted_by_cached_key(|(_, &count)| count)
+            .sorted_by_cached_key(|(var_id, &count)| (count, **var_id))
             .map(|(var, _)| *var)
             .collect::<VecDeque<VarId>>();
 
@@ -37,7 +39,6 @@ impl Inprocessor {
         );
 
         Inprocessor {
-            conflict_count: 10000, /*TODO: conflict_count := 0*/
             bve_reconstruction_data: vec![],
             initialization_time: std::time::Instant::now(),
             total_inprocessing_time: std::time::Duration::from_secs(0),
@@ -99,24 +100,22 @@ impl Inprocessor {
             "Inprocessing took {} ms",
             self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0
         );
-        println!(
-            "Total inprocessing time: {} ms",
-            self.total_inprocessing_time.as_secs_f64() * 1000.0
-        );
-        println!(
-            "Total time: {} ms",
-            self.initialization_time.elapsed().as_secs_f64() * 1000.0
-        );
 
         self.total_inprocessing_time += self.current_inprocessing_start.elapsed();
     }
 
     pub fn should_interrupt(&self) -> bool {
+        if DETERMINISTIC {
+            return true;
+        }
         (self.total_inprocessing_time + self.current_inprocessing_start.elapsed()).as_secs_f64()
             > self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
     }
 
     pub fn should_start_inprocessing(&self) -> bool {
+        if DETERMINISTIC {
+            return true;
+        }
         self.total_inprocessing_time.as_secs_f64() + 0.1
             < self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
     }
@@ -232,17 +231,15 @@ impl Inprocessor {
                     trail,
                 );
                 //state.verify_watches();
-
             }
         }
 
         // add clauses as required clauses
         for clause in &resolution_clauses {
-            
             let clause_id = state
                 .clause_database
                 .add_clause(clause.clone(), &mut state.literal_watcher);
-            
+
             // newly found units have to be enqueued
             if clause.literals.len() == 1 {
                 println!("Enqueued newly generated unit");

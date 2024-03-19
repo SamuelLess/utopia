@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import datetime
 import math
 import os
@@ -14,7 +16,7 @@ from plotnine import *
 plt.rcParams['text.usetex'] = True
 plt.rcParams["font.family"] = "serif"
 
-TIMEOUT = 1
+TIMEOUT = 5
 FILENAME = f"results-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
 
 # This a python script to create cactus plots to compare various versions

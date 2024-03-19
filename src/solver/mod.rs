@@ -22,6 +22,7 @@ use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
 use crate::solver::trail::{AssignmentReason, Trail};
 use crate::solver::unit_propagation::UnitPropagator;
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 pub struct Solver {
@@ -54,14 +55,20 @@ impl Solver {
         let mut restarter = Restarter::init(self.config.restart_policy);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::new(self.state.num_vars);
-        let mut inprocessor = Inprocessor::init(self.state.clause_database.cnf());
+        let mut inprocessor = Inprocessor::init(
+            &self
+                .state
+                .clause_database
+                .necessary_clauses_iter()
+                .map(|clause_id| self.state.clause_database[clause_id].clone())
+                .collect_vec(),
+        );
 
         self.enqueue_initial_units(&mut unit_propagator);
 
         loop {
             unit_propagator.propagate(&mut self.state, &mut trail);
 
-            //self.state.verify_watches();
             if let Some(conflict_clause_id) = self.state.conflict_clause_id {
                 if trail.decision_level == 0 {
                     break;
@@ -97,13 +104,15 @@ impl Solver {
             } else if restarter.check_if_restart_necessary() {
                 self.state.stats.num_restarts += 1;
                 trail.restart(&mut self.state, heuristic.as_mut());
-                if self.config.inprocessing{
+                if self.config.inprocessing {
+                    self.state.verify_watches();
                     inprocessor.inprocess(
                         &mut unit_propagator,
                         heuristic.as_mut(),
                         &mut self.state,
                         &mut trail,
                     );
+                    self.state.verify_watches();
                 }
             } else {
                 let next_var = heuristic.next(&self.state.vars);
@@ -129,29 +138,28 @@ impl Solver {
         if self
             .state
             .clause_database
-            .cnf()
-            .iter()
+            .necessary_clauses_iter()
+            .map(|clause_id| &self.state.clause_database[clause_id])
             .any(|clause| clause.literals.is_empty())
         {
             return true;
         }
 
+        let cnf = self.state.clause_database.necessary_clauses_iter();
         // contains a unit clause and its negation
-        let units = self
-            .state
-            .clause_database
-            .cnf()
-            .iter()
+        let units = cnf
+            .map(|clause_id| &self.state.clause_database[clause_id])
             .filter(|clause| clause.literals.len() == 1)
-            .map(|clause| clause.literals[0]);
+            .map(|clause| clause.literals[0])
+            .collect_vec();
 
         let positives: HashSet<VarId> = units
-            .clone()
+            .iter()
             .filter(|lit| lit.positive())
             .map(|lit| lit.id())
             .collect();
         let negatives: HashSet<VarId> = units
-            .clone()
+            .iter()
             .filter(|lit| !lit.positive())
             .map(|lit| lit.id())
             .collect();
@@ -162,12 +170,11 @@ impl Solver {
     fn enqueue_initial_units(&self, unit_propagator: &mut UnitPropagator) {
         self.state
             .clause_database
-            .cnf()
-            .iter()
+            .necessary_clauses_iter()
             .enumerate()
-            .filter(|(_, clause)| clause.literals.len() == 1)
+            .filter(|(_, clause)| self.state.clause_database[*clause].literals.len() == 1)
             .for_each(|(clause_id, clause)| {
-                unit_propagator.enqueue(clause.literals[0], clause_id);
+                unit_propagator.enqueue(self.state.clause_database[clause].literals[0], clause_id);
             })
     }
 
@@ -180,7 +187,6 @@ impl Solver {
         }
         if self.config.inprocessing {
             inprocessor.reconstruct_solution(&mut assignment);
-        
         }
         assignment
     }

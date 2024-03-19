@@ -4,7 +4,6 @@ use crate::solver::trail::AssignmentReason::Forced;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
-use std::ops::Neg;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
@@ -111,8 +110,7 @@ impl ClauseLearner {
         // TODO: can first and second literal also be minimized??
         // TODO: where should conflict_clause_minimization be called?
 
-        let len_before = learned_clause.len();
-        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
+        //self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
         //println!("shrunk: {} -> {}", len_before, learned_clause.len());
         // calculate lbd
         let lbd = learned_clause
