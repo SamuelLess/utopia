@@ -1,9 +1,9 @@
 const LBD_EMA_SHORT_TERM_ALPHA: f64 = 2.0 / 51.0; // Window size of 50
 
 // As in Biere & Fröhlich, should be between 2e-12 and 2e-18
-const LBD_EMA_LONG_TERM_ALPHA: f64 = 2e-14;
+const LBD_EMA_LONG_TERM_ALPHA: f64 = 2e-6;
 const ASSIGNMENT_EMA_SHORT_TERM_ALPHA: f64 = 2.0 / 51.0; // Window size of 50
-const ASSIGNMENT_EMA_LONG_TERM_ALPHA: f64 = 2e-12;
+const ASSIGNMENT_EMA_LONG_TERM_ALPHA: f64 = 2e-6;
 
 const MARGIN_RATIO_FORCING_RESTART: f64 = 1.15;
 const MARGIN_RATIO_BLOCKING_RESTART: f64 = 1.4;
@@ -34,9 +34,26 @@ impl EMAPolicy {
         let num_current_assignments = num_current_assignments as f64;
         self.assignments_long_term.update(num_current_assignments);
         self.assignments_short_term.update(num_current_assignments);
+        /*
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("log.csv")
+            .unwrap();
+
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
+        let record = &[time.to_string(), self.restart_necessary().to_string(), self.restart_blocked().to_string(), self.lbd_long_term.value.to_string(), self.lbd_short_term.value.to_string(), self.assignments_long_term.value.to_string(), self.assignments_short_term.value.to_string(), learned_clause_lbd.to_string(), num_current_assignments.to_string()];
+        writeln!(file, "{}", record.join(",")).unwrap();
+        file.flush().unwrap();*/
     }
 
     pub fn check_if_restart_necessary(&self, conflicts_since_last_restart: usize) -> bool {
+        // open log.csv
+
         conflicts_since_last_restart >= 50 && self.restart_necessary() && !self.restart_blocked()
     }
 
@@ -74,7 +91,7 @@ impl ExponentialMovingAverage {
     fn update(&mut self, new_value: f64) -> f64 {
         // Adjust alpha for initialization
         if self.alpha != self.target_alpha {
-            self.alpha /= 2.0;
+            self.alpha /= 1.02;
             if self.alpha < self.target_alpha {
                 self.alpha = self.target_alpha;
             }

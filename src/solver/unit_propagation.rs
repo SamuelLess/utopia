@@ -3,10 +3,14 @@ use crate::solver::state::State;
 use crate::solver::trail::{AssignmentReason, Trail};
 use std::collections::{HashSet, VecDeque};
 
+use fnv::FnvHasher;
+use std::hash::BuildHasherDefault;
+type FastHasher = BuildHasherDefault<FnvHasher>;
+
 #[derive(Debug, Default)]
 pub struct UnitPropagator {
     pub unit_queue: VecDeque<(Literal, ClauseId)>,
-    pub units: HashSet<Literal>,
+    pub units: HashSet<Literal, FastHasher>,
 }
 
 impl UnitPropagator {

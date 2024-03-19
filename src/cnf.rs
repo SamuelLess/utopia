@@ -135,6 +135,9 @@ impl Clause {
     }
 
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {
+        if self.check_blocking_literal(vars) {
+            return true;
+        }
         self.literals.iter().any(|lit| lit.is_true(vars))
     }
 
@@ -142,7 +145,7 @@ impl Clause {
         self.literals.iter().all(|lit| lit.is_false(vars))
     }
 
-    pub fn check_blocking_literal(&mut self, vars: &[Option<bool>]) -> bool {
+    pub fn check_blocking_literal(&self, vars: &[Option<bool>]) -> bool {
         self.blocking_literal.is_true(vars)
     }
 

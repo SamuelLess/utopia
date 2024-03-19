@@ -2,7 +2,7 @@ use crate::cnf::{Clause, ClauseId};
 use crate::solver::literal_watching::LiteralWatcher;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
-use std::collections::BTreeSet;
+use std::cmp::max;
 use std::fmt::{Debug, Formatter};
 use std::ops::Index;
 use std::ops::IndexMut;
@@ -10,7 +10,7 @@ use std::ops::IndexMut;
 #[derive(Clone)]
 pub struct ClauseDatabase {
     clauses: Vec<Clause>,
-    free_clause_ids: BTreeSet<ClauseId>,
+    free_clause_ids: Vec<ClauseId>,
     num_deletions: usize,
     conflicts_since_last_deletion: usize,
 }
@@ -24,10 +24,13 @@ impl Debug for ClauseDatabase {
         writeln!(f, "")
     }
 }
+
 pub struct Iter<'a> {
     pos: i32,
     clause_database: &'a ClauseDatabase,
     necessary_clauses_only: bool,
+    next_hole: Option<ClauseId>,
+    next_hole_position: usize,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -40,11 +43,13 @@ impl<'a> Iterator for Iter<'a> {
                 return None;
             }
 
-            if self
-                .clause_database
-                .free_clause_ids
-                .contains(&(self.pos as ClauseId))
-            {
+            if Some(self.pos as ClauseId) == self.next_hole {
+                self.next_hole_position += 1;
+                self.next_hole = self
+                    .clause_database
+                    .free_clause_ids
+                    .get(self.next_hole_position)
+                    .copied();
                 continue;
             }
 
@@ -64,7 +69,7 @@ impl<'a> Iterator for Iter<'a> {
 impl ClauseDatabase {
     pub fn init(clauses: &[Clause]) -> Self {
         ClauseDatabase {
-            free_clause_ids: BTreeSet::new(),
+            free_clause_ids: Vec::new(),
             clauses: clauses.to_vec(),
             num_deletions: 0,
             conflicts_since_last_deletion: 0,
@@ -73,7 +78,7 @@ impl ClauseDatabase {
 
     pub fn add_clause(&mut self, clause: Clause, literal_watcher: &mut LiteralWatcher) -> ClauseId {
         let id = if !self.free_clause_ids.is_empty() {
-            let id = self.free_clause_ids.pop_first().unwrap();
+            let id = self.free_clause_ids.pop().unwrap();
             self.clauses[id] = clause;
             id
         } else {
@@ -91,6 +96,8 @@ impl ClauseDatabase {
             pos: -1,
             clause_database: self,
             necessary_clauses_only: false,
+            next_hole: self.free_clause_ids.first().copied(),
+            next_hole_position: 0,
         }
     }
     pub fn necessary_clauses_iter(&self) -> Iter {
@@ -98,6 +105,8 @@ impl ClauseDatabase {
             pos: -1,
             clause_database: self,
             necessary_clauses_only: true,
+            next_hole: self.free_clause_ids.first().copied(),
+            next_hole_position: 0,
         }
     }
 
@@ -126,7 +135,8 @@ impl ClauseDatabase {
         }
 
         literal_watcher.delete_clause(&self.clauses[clause_id], clause_id);
-        self.free_clause_ids.insert(clause_id);
+        self.free_clause_ids.push(clause_id);
+        self.free_clause_ids.sort_unstable();
     }
 
     pub fn delete_clauses_if_necessary(
@@ -144,31 +154,19 @@ impl ClauseDatabase {
         println!("Deleting clauses");
 
         let mut lbds = self
-            .clauses
             .iter()
-            .enumerate()
-            .filter_map(|(clause_id, clause)| {
-                if self.free_clause_ids.contains(&clause_id) {
-                    None
-                } else {
-                    clause.lbd
-                }
-            })
+            .filter_map(|clause_id| self[clause_id].lbd)
             .collect_vec();
 
         lbds.sort();
-        let threshold = lbds[lbds.len() / 2];
+
+        // don't delete glue clauses (lbd == 2)
+        let threshold = max(lbds[lbds.len() / 2], 2);
 
         for clause_id in 0..self.clauses.len() {
             if let Some(lbd) = self.clauses[clause_id].lbd {
                 if lbd <= threshold {
                     continue;
-                }
-                // clauses with lbd = 2 ("glue clauses") should NOT be removed
-                if self.clauses[clause_id].lbd.is_some()
-                    && self.clauses[clause_id].lbd.unwrap() <= 2
-                {
-                    return;
                 }
 
                 self.delete_clause_if_allowed(clause_id, literal_watcher, trail);

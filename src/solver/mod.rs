@@ -98,21 +98,19 @@ impl Solver {
 
                 heuristic.conflict(&self.state.clause_database[conflict_clause_id]);
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
-            } else if self.state.is_satisfied() {
+            } else if self.state.check_satisfied_and_update_blocking_literals() {
                 self.state.stats.stop_timing();
                 return Some(self.get_solution(&mut inprocessor));
             } else if restarter.check_if_restart_necessary() {
                 self.state.stats.num_restarts += 1;
                 trail.restart(&mut self.state, heuristic.as_mut());
                 if self.config.inprocessing {
-                    self.state.verify_watches();
                     inprocessor.inprocess(
                         &mut unit_propagator,
                         heuristic.as_mut(),
                         &mut self.state,
                         &mut trail,
                     );
-                    self.state.verify_watches();
                 }
             } else {
                 let next_var = heuristic.next(&self.state.vars);

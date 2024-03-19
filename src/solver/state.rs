@@ -62,6 +62,7 @@ impl State {
             }
 
             let clause = &mut self.clause_database[clause_id];
+
             // check the blocking literal first
             if clause.check_blocking_literal(&self.vars) {
                 self.literal_watcher.add_watch(-lit, clause_id);
@@ -73,7 +74,8 @@ impl State {
                 .update_clause(clause, clause_id, -lit, &self.vars);
             match watch_update {
                 WatchUpdate::FoundNewWatch => {}
-                WatchUpdate::Satisfied => {
+                WatchUpdate::Satisfied(blocking_literal) => {
+                    clause.blocking_literal = blocking_literal;
                     self.literal_watcher.add_watch(-lit, clause_id);
                 }
                 WatchUpdate::Unit(unit) => {
@@ -91,10 +93,26 @@ impl State {
         self.vars[lit.id()] = None;
     }
 
-    pub fn is_satisfied(&self) -> bool {
-        self.clause_database
-            .necessary_clauses_iter()
-            .all(|clause_id| self.clause_database[clause_id].is_satisfied(&self.vars))
+    pub fn check_satisfied_and_update_blocking_literals(&mut self) -> bool {
+        let mut new_blockings: Vec<(ClauseId, Literal)> = Vec::new();
+        let mut is_sat = true;
+        for clause_id in self.clause_database.necessary_clauses_iter() {
+            let clause = &self.clause_database[clause_id];
+            if clause.check_blocking_literal(&self.vars) {
+                continue;
+            }
+            let true_lit = clause.literals.iter().find(|lit| lit.is_true(&self.vars));
+            if let Some(lit) = true_lit {
+                new_blockings.push((clause_id, *lit));
+            } else {
+                is_sat = false;
+                break;
+            }
+        }
+        for (clause_id, lit) in new_blockings {
+            self.clause_database[clause_id].blocking_literal = lit;
+        }
+        is_sat
     }
 
     pub fn get_assignment(&self) -> HashMap<VarId, bool> {

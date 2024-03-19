@@ -1,9 +1,13 @@
-use crate::cnf::{Clause, ClauseId, Literal};
+use crate::cnf::{Clause, ClauseId, Literal, VarId};
 use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::trail::AssignmentReason::Forced;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
+
+use fnv::FnvHasher;
+use std::hash::BuildHasherDefault;
+type FastHasher = BuildHasherDefault<FnvHasher>;
 
 #[derive(Debug, Default, Clone)]
 pub struct ClauseLearner {}
@@ -23,7 +27,7 @@ impl ClauseLearner {
         let mut current_literal: Option<Literal> = None;
         let mut current_reason_clause_id: ClauseId = conflict_clause_id;
         let mut trail_position = trail.assignment_stack.len() - 1;
-        let mut seen = HashSet::new();
+        let mut seen: HashSet<VarId, FastHasher> = HashSet::with_hasher(FastHasher::default());
 
         loop {
             let conflict_clause = &clause_database[current_reason_clause_id];

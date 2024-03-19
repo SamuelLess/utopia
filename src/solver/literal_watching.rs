@@ -12,7 +12,7 @@ pub enum WatchUpdate {
     FoundNewWatch,
     Unit(Literal),
     Conflict,
-    Satisfied,
+    Satisfied(Literal),
 }
 
 #[derive(Debug, Clone)]
@@ -87,9 +87,7 @@ impl LiteralWatcher {
 
         for i in 0..clause.literals.len() {
             if clause.literals[i].is_true(vars) {
-                clause.blocking_literal = clause.literals[i];
-
-                return WatchUpdate::Satisfied;
+                return WatchUpdate::Satisfied(clause.literals[i]);
             }
 
             // the first two literals can't become new watches as the already are

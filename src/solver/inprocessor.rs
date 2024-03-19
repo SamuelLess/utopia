@@ -18,6 +18,7 @@ pub struct Inprocessor {
     total_inprocessing_time: std::time::Duration,
     current_inprocessing_start: std::time::Instant,
     bve_queue: VecDeque<VarId>,
+    resolved_vars: usize,
 }
 
 impl Inprocessor {
@@ -44,6 +45,7 @@ impl Inprocessor {
             total_inprocessing_time: std::time::Duration::from_secs(0),
             current_inprocessing_start: std::time::Instant::now(),
             bve_queue: vars_ordered_by_occurences,
+            resolved_vars: 0,
         }
     }
 
@@ -136,23 +138,18 @@ impl Inprocessor {
         let units = self.start_inprocessing(trail, state, heuristic);
 
         while let Some(var) = self.bve_queue.pop_front() {
-            // don't look at this code -- serious risk of brain damage :D
-            let occ = state
-                .clause_database
-                .iter()
-                .flat_map(|clause_id| {
-                    state.clause_database[clause_id]
-                        .clone()
-                        .map(move |x| (x, clause_id))
-                })
-                .into_group_map();
-
-            self.bounded_variable_elimination(var, trail, unit_propagator, state, &occ);
+            self.bounded_variable_elimination(var, trail, unit_propagator, state);
 
             if self.should_interrupt() {
                 break;
             }
         }
+
+        println!(
+            "Inprocessing finished. Resolved {} vars, {} left",
+            self.resolved_vars,
+            self.bve_queue.len()
+        );
 
         self.end_inprocessing(units, unit_propagator);
     }
@@ -167,21 +164,25 @@ impl Inprocessor {
         trail: &Trail,
         unit_propagator: &mut UnitPropagator,
         state: &mut State,
-        occ: &HashMap<Literal, Vec<ClauseId>>,
     ) {
         let mut resolution_clauses = vec![];
 
-        let empty_vec = Vec::new();
-
-        // group occ by 1. pos/neg occ 2. occ in learned/non-learned clauses
-        let group_occ = |sign| {
-            occ.get(&Literal::from_value(var_id, sign))
-                .unwrap_or(&empty_vec)
-        };
-
         // find all pos_occ and neg_occ
-        let pos_occ = group_occ(true);
-        let neg_occ = group_occ(false);
+        let mut pos_occ = Vec::new();
+        let mut neg_occ = Vec::new();
+
+        for clause_id in state.clause_database.iter() {
+            let clause = &state.clause_database[clause_id];
+            for lit in &clause.literals {
+                if lit.id() == var_id {
+                    if lit.positive() {
+                        pos_occ.push(clause_id);
+                    } else {
+                        neg_occ.push(clause_id);
+                    }
+                }
+            }
+        }
 
         let num_clauses_before = pos_occ.len() + neg_occ.len();
 
@@ -214,6 +215,7 @@ impl Inprocessor {
             }
         }
 
+        self.resolved_vars += 1;
         // delete old clauses
         for (any_occ, polarity_in_clause) in [(pos_occ, true), (neg_occ, false)] {
             for clause_id in any_occ.iter() {
@@ -250,11 +252,6 @@ impl Inprocessor {
         let num_added_clauses = resolution_clauses.len();
 
         assert!(num_added_clauses <= num_clauses_before);
-
-        println!(
-            "Resolved {num_clauses_before} clauses for {}",
-            num_added_clauses
-        );
     }
 
     /// Reconstruction as described in M. Järvisalo, M. J. H. Heule, and A. Biere,

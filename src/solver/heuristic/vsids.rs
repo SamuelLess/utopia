@@ -6,9 +6,14 @@ use crate::solver::heuristic::Heuristic;
 use crate::solver::state::State;
 use crate::solver::trail::Assignment;
 
+use fnv::FnvHasher;
+use std::hash::BuildHasherDefault;
+
+type FastHasher = BuildHasherDefault<FnvHasher>;
+
 #[derive(Default)]
 pub struct HeuristicVSIDS {
-    pub order: PriorityQueue<VarId, NotNan<f64>>,
+    pub order: PriorityQueue<VarId, NotNan<f64>, FastHasher>,
     priorities: Vec<NotNan<f64>>,
     conflict_index: f64,
 }
@@ -29,7 +34,8 @@ impl HeuristicVSIDS {
 
         self.conflict_index -= factor.ln() / BUMP_BASIS.ln();
 
-        let mut new_order = PriorityQueue::new();
+        let mut new_order: PriorityQueue<VarId, NotNan<f64>, FastHasher> =
+            PriorityQueue::with_capacity_and_hasher(self.order.len(), FastHasher::default());
 
         // rescale the priorities in the queue
         for (var_id, _) in self.order.clone() {
