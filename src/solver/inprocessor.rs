@@ -199,7 +199,6 @@ impl Inprocessor {
             // check for tautology
             if unique.len() == unique.iter().map(|lit| lit.id()).unique().count() {
                 resolution_clauses.push(Clause::from(unique.iter().map(|lit| **lit).collect_vec()));
-
             }
 
             if resolution_clauses.len() >= num_clauses_before {

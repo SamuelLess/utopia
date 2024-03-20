@@ -91,11 +91,9 @@ impl LiteralWatcher {
             if i > 1 && clause.literals[i].is_free(vars) {
                 // new watch found -- swap it into the watch position
                 clause.literals.swap(0, i);
-                
                 return WatchUpdate::FoundNewWatch;
             }
         }
-        
         // verify that the clause is actually unit
         debug_assert_eq!(
             clause

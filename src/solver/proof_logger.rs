@@ -56,7 +56,7 @@ impl ProofLogger {
 
             match proof_step {
                 ProofStep::AddClause(_) => {}
-                ProofStep::DeleteClause(_) => {write!(file, "d ").unwrap()}
+                ProofStep::DeleteClause(_) => write!(file, "d ").unwrap(),
             }
 
             writeln!(file, "{} 0", clause_str).unwrap();

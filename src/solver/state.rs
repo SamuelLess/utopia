@@ -1,10 +1,14 @@
+use std::collections::HashMap;
+
+use itertools::Itertools;
+
 use crate::cnf::{Clause, ClauseId, Literal, VarId};
 use crate::solver::clause_database::ClauseDatabase;
 use crate::solver::literal_watching::{LiteralWatcher, WatchUpdate};
 use crate::solver::statistics::StateStatistics;
 use crate::solver::unit_propagation::UnitPropagator;
-use itertools::Itertools;
-use std::collections::HashMap;
+
+const MARKED_FOR_DELETION: ClauseId = ClauseId::MAX;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -49,49 +53,50 @@ impl State {
         if self.vars[var_id].is_some() {
             panic!("Variable {} is already assigned!", var_id);
         }
-        //self.verify_watches();
         self.vars[var_id] = Some(value);
         self.var_phases[var_id] = value;
 
-        let affected_clauses = std::mem::take(self.literal_watcher.affected_clauses(lit));
-        for clause_id in affected_clauses {
+        let len = self.literal_watcher.affected_clauses(lit).len();
+        for i in 0..len {
             // skip rest of clauses if conflict is detected
             if self.conflict_clause_id.is_some() {
-                self.literal_watcher.add_watch(-lit, clause_id);
-                continue;
+                break;
             }
+
+            let clause_id = self.literal_watcher.affected_clauses(lit)[i];
 
             let clause = &mut self.clause_database[clause_id];
 
             // check the blocking literal first
             if clause.check_blocking_literal(&self.vars) {
-                self.literal_watcher.add_watch(-lit, clause_id);
                 continue;
             }
 
-            let watch_update = self
-                .literal_watcher
-                .update_clause(clause, -lit, &self.vars);
-            
+            let watch_update = self.literal_watcher.update_clause(clause, -lit, &self.vars);
+
             match watch_update {
                 WatchUpdate::FoundNewWatch => {
-                    self.literal_watcher.add_watch(clause.literals[0], clause_id);
+                    self.literal_watcher.affected_clauses(lit)[i] = MARKED_FOR_DELETION;
+
+                    self.literal_watcher
+                        .add_watch(clause.literals[0], clause_id);
                 }
                 WatchUpdate::Satisfied(blocking_literal) => {
                     clause.blocking_literal = blocking_literal;
-                    self.literal_watcher.add_watch(-lit, clause_id);
                 }
                 WatchUpdate::Unit(unit) => {
-                    self.literal_watcher.add_watch(-lit, clause_id);
                     unit_propagator.enqueue(unit, clause_id);
                 }
                 WatchUpdate::Conflict => {
-                    self.literal_watcher.add_watch(-lit, clause_id);
                     self.conflict_clause_id = Some(clause_id);
                     self.stats.num_conflicts += 1;
                 }
             }
         }
+
+        self.literal_watcher
+            .affected_clauses(-lit)
+            .retain(|&id| id != MARKED_FOR_DELETION);
     }
 
     pub fn unassign(&mut self, lit: Literal) {
@@ -173,9 +178,10 @@ impl State {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::cnf::Clause;
     use crate::cnf::Literal;
+
+    use super::*;
 
     #[test]
     fn test_state_init() {

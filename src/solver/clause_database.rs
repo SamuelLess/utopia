@@ -1,12 +1,12 @@
 use crate::cnf::{Clause, ClauseId};
 use crate::solver::literal_watching::LiteralWatcher;
+use crate::solver::proof_logger::ProofLogger;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::cmp::max;
 use std::fmt::{Debug, Formatter};
 use std::ops::Index;
 use std::ops::IndexMut;
-use crate::solver::proof_logger::ProofLogger;
 
 #[derive(Clone)]
 pub struct ClauseDatabase {
@@ -69,7 +69,7 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 impl ClauseDatabase {
-    pub fn init(clauses: &[Clause], proof_logging :bool) -> Self {
+    pub fn init(clauses: &[Clause], proof_logging: bool) -> Self {
         ClauseDatabase {
             free_clause_ids: Vec::new(),
             clauses: clauses.to_vec(),
@@ -175,7 +175,7 @@ impl ClauseDatabase {
                     continue;
                 }
                 if clause_id == conflict_clause_id {
-                    // As clause deletion gets called right after a conflict, 
+                    // As clause deletion gets called right after a conflict,
                     // we have to ensure we don't delete the conflict clause
                     continue;
                 }
@@ -183,7 +183,11 @@ impl ClauseDatabase {
             }
         }
 
-        println!("c Deleted {} of {} clauses", num_clauses_before - self.clauses.len() + self.free_clause_ids.len(), num_clauses_before);
+        println!(
+            "c Deleted {} of {} clauses",
+            num_clauses_before - self.clauses.len() + self.free_clause_ids.len(),
+            num_clauses_before
+        );
     }
 }
 
@@ -191,7 +195,7 @@ impl Index<ClauseId> for ClauseDatabase {
     type Output = Clause;
 
     fn index(&self, index: ClauseId) -> &Self::Output {
-       /* debug_assert!(
+        /* debug_assert!(
             self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
         );*/
@@ -201,7 +205,7 @@ impl Index<ClauseId> for ClauseDatabase {
 
 impl IndexMut<ClauseId> for ClauseDatabase {
     fn index_mut(&mut self, index: ClauseId) -> &mut Self::Output {
-       /* debug_assert!(
+        /* debug_assert!(
             self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
         );*/

@@ -60,7 +60,7 @@ impl Solver {
                 .map(|clause_id| self.state.clause_database[clause_id].clone())
                 .collect_vec(),
         );
-        
+
         self.enqueue_initial_units(&mut unit_propagator);
 
         loop {
@@ -70,9 +70,11 @@ impl Solver {
                 if trail.decision_level == 0 {
                     break;
                 }
-                self.state
-                    .clause_database
-                    .delete_clauses_if_necessary(conflict_clause_id, &mut self.state.literal_watcher, &trail);
+                self.state.clause_database.delete_clauses_if_necessary(
+                    conflict_clause_id,
+                    &mut self.state.literal_watcher,
+                    &trail,
+                );
 
                 // find conflict clause
                 let (new_clause, assertion_level) = self.clause_learner.analyse_conflict(
@@ -111,7 +113,6 @@ impl Solver {
             } else {
                 let next_var = heuristic.next(&self.state.vars);
                 let next_literal = Literal::from_value(next_var, self.state.var_phases[next_var]);
-                
 
                 trail.assign(
                     &mut self.state,
@@ -124,7 +125,10 @@ impl Solver {
         self.state.stats.stop_timing();
         if let Some(proof_file) = self.config.proof_file.as_ref() {
             println!("c Writing proof to file");
-            self.state.clause_database.proof_logger.write_to_file(proof_file);
+            self.state
+                .clause_database
+                .proof_logger
+                .write_to_file(proof_file);
         }
 
         None

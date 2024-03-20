@@ -139,13 +139,14 @@ impl ClauseLearner {
         trail: &Trail,
         seen: &HashSet<VarId, FastHasher>,
     ) {
-
         let mut minimized_clause = vec![clause[0]]; // keep the uip
 
         for literal in clause.iter().skip(1) {
             let reason_clause = match trail.get_reason(*literal) {
-                AssignmentReason::Forced(reason_clause) => Some(&clause_database[*reason_clause].literals),
-                AssignmentReason::Heuristic => None
+                AssignmentReason::Forced(reason_clause) => {
+                    Some(&clause_database[*reason_clause].literals)
+                }
+                AssignmentReason::Heuristic => None,
             };
 
             if let Some(reason_clause) = reason_clause {
