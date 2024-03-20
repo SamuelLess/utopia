@@ -1,13 +1,11 @@
 use crate::cnf::{Clause, ClauseId, Literal, VarId};
 use crate::solver::clause_database::ClauseDatabase;
-use crate::solver::trail::AssignmentReason::Forced;
 use crate::solver::trail::{AssignmentReason, Trail};
 use itertools::Itertools;
 use std::collections::HashSet;
 
 use fnv::FnvHasher;
 use std::hash::BuildHasherDefault;
-use std::thread::current;
 
 type FastHasher = BuildHasherDefault<FnvHasher>;
 
@@ -86,7 +84,7 @@ impl ClauseLearner {
         // TODO: can first and second literal also be minimized??
         // TODO: where should conflict_clause_minimization be called?
 
-        //self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
+        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
 
         // learned clause is UIP
         debug_assert_eq!(
@@ -145,17 +143,10 @@ impl ClauseLearner {
         let mut minimized_clause = vec![clause[0]]; // keep the uip
 
         for literal in clause.iter().skip(1) {
-            let reason_clause = trail
-                .assignment_stack
-                .iter()
-                .find(|assignment| {
-                    assignment.literal.id() == literal.id()
-                        && assignment.reason != AssignmentReason::Heuristic
-                })
-                .map(|assignment| match assignment.reason {
-                    Forced(reason) => &clause_database[reason].literals,
-                    _ => unreachable!(),
-                });
+            let reason_clause = match trail.get_reason(*literal) {
+                AssignmentReason::Forced(reason_clause) => Some(&clause_database[*reason_clause].literals),
+                AssignmentReason::Heuristic => None
+            };
 
             if let Some(reason_clause) = reason_clause {
                 for reason_literal in reason_clause.iter() {

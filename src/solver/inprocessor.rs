@@ -7,7 +7,7 @@ use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 
-const INPROCESSING_RATIO: f64 = 100.0;
+const INPROCESSING_RATIO: f64 = 0.15;
 
 const DETERMINISTIC: bool = false;
 // sat/ii32b4.cnf

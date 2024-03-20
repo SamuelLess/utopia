@@ -39,6 +39,7 @@ pub enum AssignmentReason {
 pub struct Trail {
     pub assignment_stack: Vec<Assignment>,
     pub var_decision_level: Vec<usize>,
+    pub var_assignment_pos: Vec<usize>,
     pub decision_level: usize,
 }
 
@@ -47,6 +48,7 @@ impl Trail {
         Trail {
             assignment_stack: vec![],
             var_decision_level: vec![0; num_vars + 1],
+            var_assignment_pos: vec![0; num_vars + 1],
             decision_level: 0,
         }
     }
@@ -70,6 +72,7 @@ impl Trail {
 
         self.push_assignment(assignment.clone());
         self.var_decision_level[literal.id()] = self.decision_level;
+        self.var_assignment_pos[literal.id()] = self.assignment_stack.len() - 1;
 
         state.assign(assignment.into(), unit_propagator);
     }
@@ -111,22 +114,13 @@ impl Trail {
         self.backtrack(state, heuristic, 0);
     }
 
-    /// Returns the assignments that from top to most recent heuristic
-    pub fn assignments_to_undo(&self, assertion_level: usize) -> &[Assignment] {
-        // find the last heuristic assignment
-        let last = self
-            .assignment_stack
-            .iter()
-            .rev()
-            .position(|assignment| assignment.decision_level == assertion_level)
-            .unwrap_or(self.assignment_stack.len());
-        // [1@1,7@1,2@2,3@2,4@3,5@3] -> 3 idx = 2 ->  len=6-2-1=4
-        let len = self.assignment_stack.len();
-        &self.assignment_stack[(len - last)..]
-    }
-
     pub fn push_assignment(&mut self, assignment: Assignment) {
         self.assignment_stack.push(assignment);
+    }
+
+    pub fn get_reason(&self, literal: Literal) -> &AssignmentReason {
+        let pos = self.var_assignment_pos[literal.id()];
+        &self.assignment_stack[pos].reason
     }
 
     pub fn implication_graph(&self, state: &State) -> String {

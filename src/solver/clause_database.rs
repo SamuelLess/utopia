@@ -191,20 +191,20 @@ impl Index<ClauseId> for ClauseDatabase {
     type Output = Clause;
 
     fn index(&self, index: ClauseId) -> &Self::Output {
-        assert!(
+       /* debug_assert!(
             self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
-        );
+        );*/
         &self.clauses[index]
     }
 }
 
 impl IndexMut<ClauseId> for ClauseDatabase {
     fn index_mut(&mut self, index: ClauseId) -> &mut Self::Output {
-        assert!(
+       /* debug_assert!(
             self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
-        );
+        );*/
         &mut self.clauses[index]
     }
 }

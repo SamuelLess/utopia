@@ -16,7 +16,6 @@ use crate::cnf::{Clause, Literal, Solution, VarId};
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::inprocessor::Inprocessor;
-use crate::solver::proof_logger::ProofLogger;
 use crate::solver::restarts::Restarter;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
@@ -60,13 +59,6 @@ impl Solver {
                 .necessary_clauses_iter()
                 .map(|clause_id| self.state.clause_database[clause_id].clone())
                 .collect_vec(),
-        );
-        
-        inprocessor.inprocess(
-            &mut unit_propagator,
-            heuristic.as_mut(),
-            &mut self.state,
-            &mut trail,
         );
         
         self.enqueue_initial_units(&mut unit_propagator);

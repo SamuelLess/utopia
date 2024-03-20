@@ -65,7 +65,6 @@ impl LiteralWatcher {
     pub fn update_clause(
         &mut self,
         clause: &mut Clause,
-        clause_id: ClauseId,
         invalid_literal: Literal,
         vars: &[Option<bool>],
     ) -> WatchUpdate {
@@ -80,8 +79,6 @@ impl LiteralWatcher {
 
         // the other literal is also invalid
         if clause.literals[1].is_false(vars) {
-            self.add_watch(invalid_literal, clause_id);
-
             return WatchUpdate::Conflict;
         }
 
@@ -94,16 +91,11 @@ impl LiteralWatcher {
             if i > 1 && clause.literals[i].is_free(vars) {
                 // new watch found -- swap it into the watch position
                 clause.literals.swap(0, i);
-
-                self.add_watch(clause.literals[0], clause_id);
-
+                
                 return WatchUpdate::FoundNewWatch;
             }
         }
-        // As the entire watchlist of this literal is getting cleared, we need to re-add it
-        // if it's a unit and we don't actually change the literal
-        self.add_watch(invalid_literal, clause_id);
-
+        
         // verify that the clause is actually unit
         debug_assert_eq!(
             clause

@@ -71,17 +71,22 @@ impl State {
 
             let watch_update = self
                 .literal_watcher
-                .update_clause(clause, clause_id, -lit, &self.vars);
+                .update_clause(clause, -lit, &self.vars);
+            
             match watch_update {
-                WatchUpdate::FoundNewWatch => {}
+                WatchUpdate::FoundNewWatch => {
+                    self.literal_watcher.add_watch(clause.literals[0], clause_id);
+                }
                 WatchUpdate::Satisfied(blocking_literal) => {
                     clause.blocking_literal = blocking_literal;
                     self.literal_watcher.add_watch(-lit, clause_id);
                 }
                 WatchUpdate::Unit(unit) => {
+                    self.literal_watcher.add_watch(-lit, clause_id);
                     unit_propagator.enqueue(unit, clause_id);
                 }
                 WatchUpdate::Conflict => {
+                    self.literal_watcher.add_watch(-lit, clause_id);
                     self.conflict_clause_id = Some(clause_id);
                     self.stats.num_conflicts += 1;
                 }
