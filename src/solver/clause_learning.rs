@@ -7,6 +7,8 @@ use std::collections::HashSet;
 
 use fnv::FnvHasher;
 use std::hash::BuildHasherDefault;
+use std::thread::current;
+
 type FastHasher = BuildHasherDefault<FnvHasher>;
 
 #[derive(Debug, Default, Clone)]
@@ -80,6 +82,12 @@ impl ClauseLearner {
             trail.var_decision_level[learned_clause[0].id()],
             trail.decision_level
         );
+
+        // TODO: can first and second literal also be minimized??
+        // TODO: where should conflict_clause_minimization be called?
+
+        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
+
         // learned clause is UIP
         debug_assert_eq!(
             learned_clause
@@ -88,6 +96,8 @@ impl ClauseLearner {
                 .count(),
             1
         );
+
+        //println!("shrunk: {} -> {}", len_before, learned_clause.len());
 
         // assertion level
         let assertion_level = learned_clause
@@ -111,11 +121,6 @@ impl ClauseLearner {
 
         assert!(assertion_level < trail.decision_level);
 
-        // TODO: can first and second literal also be minimized??
-        // TODO: where should conflict_clause_minimization be called?
-
-        //self.conflict_clause_minimization(&mut learned_clause, clause_database, trail);
-        //println!("shrunk: {} -> {}", len_before, learned_clause.len());
         // calculate lbd
         let lbd = learned_clause
             .iter()
@@ -134,51 +139,47 @@ impl ClauseLearner {
         clause: &mut Vec<Literal>,
         clause_database: &ClauseDatabase,
         trail: &Trail,
+        seen: &HashSet<VarId, FastHasher>,
     ) {
-        let mut marked = Vec::new();
-        let clause_set: HashSet<Literal> = HashSet::from_iter(clause.clone());
+        return;
+        print!("BEFORE: {:?}", clause);
+        let mut current_write_index = 1;
 
-        let all_literals = clause.clone();
-        for lit in all_literals.iter().skip(2) {
-            let reason = &trail
+        for current_lit_index in 1..clause.len() {
+            let current_var_id = clause[current_lit_index].id();
+            let reason_clause = trail
                 .assignment_stack
                 .iter()
-                .find(|assignment| assignment.literal == -*lit)
-                .unwrap()
-                .reason;
-            if let Forced(reason_clause_id) = reason {
-                // let reason_clause_id = reasons[0].1;
-                let reason_clause = &clause_database[*reason_clause_id];
+                .find(|assignment| {
+                    assignment.literal.id() == current_var_id
+                        && assignment.reason != AssignmentReason::Heuristic
+                })
+                .map(|assignment| match assignment.reason {
+                    Forced(reason) => &clause_database[reason].literals,
+                    _ => unreachable!(),
+                });
 
-                // TODO: why do we even remove lit? lit is in clause anyway
-                let reason_clause_without_lit: HashSet<Literal> =
-                    HashSet::from_iter(reason_clause.literals.iter().filter_map(|l| {
-                        if *l != -*lit {
-                            Some(*l)
-                        } else {
-                            None
-                        }
-                    }));
-
-                /*
-                println!(
-                    "reason(-p)/p: {:?} clause:  {:?} literal: {}",
-                    reason_clause_without_lit, clause_set, lit
-                );
-                */
-
-                if reason_clause_without_lit.is_subset(&clause_set) {
-                    marked.push(lit);
+            if let Some(reason_clause) = reason_clause {
+                for reason_lit_index in 1..reason_clause.len() {
+                    if !seen.contains(&reason_clause[reason_lit_index].id())
+                        && trail.var_decision_level[reason_clause[reason_lit_index].id()] > 0
+                    {
+                        clause[current_write_index] = clause[current_lit_index];
+                        current_write_index += 1;
+                        break;
+                    }
                 }
+            } else {
+                clause[current_write_index] = clause[current_lit_index];
+                current_write_index += 1;
             }
         }
-
-        //println!("marked contains {}", marked.len());
-        // assert_eq!(marked.len(), 0);
-        clause.retain(|lit| !marked.contains(&lit));
+        clause.truncate(current_write_index);
+        println!(
+            "\t\t AFTER: {:?} (current_write_index = {})",
+            clause, current_write_index
+        );
     }
-
-    //manol-pipe-g6bi.cnf
 }
 
 #[cfg(test)]
