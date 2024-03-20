@@ -141,17 +141,14 @@ impl ClauseLearner {
         trail: &Trail,
         seen: &HashSet<VarId, FastHasher>,
     ) {
-        return;
-        print!("BEFORE: {:?}", clause);
-        let mut current_write_index = 1;
+        let mut minimized_clause = vec![clause[0]]; // keep the uip
 
-        for current_lit_index in 1..clause.len() {
-            let current_var_id = clause[current_lit_index].id();
+        for literal in clause.iter().skip(1) {
             let reason_clause = trail
                 .assignment_stack
                 .iter()
                 .find(|assignment| {
-                    assignment.literal.id() == current_var_id
+                    assignment.literal.id() == literal.id()
                         && assignment.reason != AssignmentReason::Heuristic
                 })
                 .map(|assignment| match assignment.reason {
@@ -160,25 +157,30 @@ impl ClauseLearner {
                 });
 
             if let Some(reason_clause) = reason_clause {
-                for reason_lit_index in 1..reason_clause.len() {
-                    if !seen.contains(&reason_clause[reason_lit_index].id())
-                        && trail.var_decision_level[reason_clause[reason_lit_index].id()] > 0
+                for reason_literal in reason_clause.iter() {
+                    if reason_literal.id() == literal.id() {
+                        continue;
+                    }
+                    if !seen.contains(&reason_literal.id())
+                        && trail.var_decision_level[reason_literal.id()] > 0
                     {
-                        clause[current_write_index] = clause[current_lit_index];
-                        current_write_index += 1;
+                        minimized_clause.push(*literal);
+
                         break;
                     }
                 }
             } else {
-                clause[current_write_index] = clause[current_lit_index];
-                current_write_index += 1;
+                minimized_clause.push(*literal)
             }
         }
-        clause.truncate(current_write_index);
+
         println!(
-            "\t\t AFTER: {:?} (current_write_index = {})",
-            clause, current_write_index
+            "BEFORE: {:?} \t\t AFTER: {:?})",
+            clause.len(),
+            minimized_clause.len()
         );
+
+        *clause = minimized_clause;
     }
 }
 
