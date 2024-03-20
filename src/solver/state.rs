@@ -18,7 +18,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn init(clauses: Vec<Clause>, n_vars: usize) -> Self {
+    pub fn init(clauses: Vec<Clause>, n_vars: usize, proof_logging: bool) -> Self {
         // remove tautologies
         let relevant_clauses = clauses
             .clone()
@@ -37,7 +37,7 @@ impl State {
             var_phases: vec![true; n_vars + 1],
             literal_watcher: LiteralWatcher::new(&relevant_clauses, n_vars),
             stats: StateStatistics::new(relevant_clauses.len(), n_vars),
-            clause_database: ClauseDatabase::init(relevant_clauses.as_ref()),
+            clause_database: ClauseDatabase::init(relevant_clauses.as_ref(), proof_logging),
             num_vars: n_vars,
         }
     }

@@ -141,6 +141,7 @@ impl ClauseLearner {
         trail: &Trail,
         seen: &HashSet<VarId, FastHasher>,
     ) {
+        
         let mut minimized_clause = vec![clause[0]]; // keep the uip
 
         for literal in clause.iter().skip(1) {
@@ -173,13 +174,6 @@ impl ClauseLearner {
                 minimized_clause.push(*literal)
             }
         }
-
-        println!(
-            "BEFORE: {:?} \t\t AFTER: {:?})",
-            clause.len(),
-            minimized_clause.len()
-        );
-
         *clause = minimized_clause;
     }
 }

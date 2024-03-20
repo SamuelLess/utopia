@@ -6,12 +6,14 @@ use std::cmp::max;
 use std::fmt::{Debug, Formatter};
 use std::ops::Index;
 use std::ops::IndexMut;
+use crate::solver::proof_logger::ProofLogger;
 
 #[derive(Clone)]
 pub struct ClauseDatabase {
     clauses: Vec<Clause>,
     free_clause_ids: Vec<ClauseId>,
     num_deletions: usize,
+    pub(crate) proof_logger: ProofLogger,
     conflicts_since_last_deletion: usize,
 }
 
@@ -67,12 +69,13 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 impl ClauseDatabase {
-    pub fn init(clauses: &[Clause]) -> Self {
+    pub fn init(clauses: &[Clause], proof_logging :bool) -> Self {
         ClauseDatabase {
             free_clause_ids: Vec::new(),
             clauses: clauses.to_vec(),
             num_deletions: 0,
             conflicts_since_last_deletion: 0,
+            proof_logger: ProofLogger::new(proof_logging),
         }
     }
 
@@ -85,7 +88,8 @@ impl ClauseDatabase {
             self.clauses.push(clause);
             self.clauses.len() - 1
         };
-
+        
+        self.proof_logger.log(&self.clauses[id]);
         literal_watcher.add_clause(&self.clauses[id], id);
 
         id
@@ -133,7 +137,8 @@ impl ClauseDatabase {
         if self.clauses[clause_id].literals.len() < 2 {
             return;
         }
-
+        
+        self.proof_logger.delete(&self.clauses[clause_id]);
         literal_watcher.delete_clause(&self.clauses[clause_id], clause_id);
         self.free_clause_ids.push(clause_id);
         self.free_clause_ids.sort_unstable();

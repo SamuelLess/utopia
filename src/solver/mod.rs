@@ -29,7 +29,6 @@ pub struct Solver {
     config: Config,
     state: State,
     clause_learner: ClauseLearner,
-    proof_logger: ProofLogger,
 }
 
 impl Solver {
@@ -37,9 +36,8 @@ impl Solver {
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            state: State::init(clauses.clone(), n_vars),
+            state: State::init(clauses.clone(), n_vars, config.proof_file.is_some()),
             clause_learner,
-            proof_logger: ProofLogger::new(config.proof_file.is_some()),
             config,
         }
     }
@@ -84,7 +82,6 @@ impl Solver {
                     conflict_clause_id,
                 );
 
-                self.proof_logger.log(&new_clause);
                 restarter.conflict(new_clause.lbd.unwrap(), trail.assignment_stack.len());
 
                 // The first literal is always UIP
@@ -125,7 +122,7 @@ impl Solver {
         }
         self.state.stats.stop_timing();
         if let Some(proof_file) = self.config.proof_file.as_ref() {
-            self.proof_logger.write_to_file(proof_file);
+            self.state.clause_database.proof_logger.write_to_file(proof_file);
         }
 
         None

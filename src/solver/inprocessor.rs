@@ -129,7 +129,7 @@ impl Inprocessor {
         state: &mut State,
         trail: &mut Trail,
     ) {
-        if !self.should_start_inprocessing() {
+        if self.bve_queue.is_empty() || !self.should_start_inprocessing() {
             return;
         }
 
