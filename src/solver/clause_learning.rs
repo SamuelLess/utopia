@@ -86,7 +86,7 @@ impl ClauseLearner {
         // TODO: can first and second literal also be minimized??
         // TODO: where should conflict_clause_minimization be called?
 
-        self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
+        //self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
 
         // learned clause is UIP
         debug_assert_eq!(
@@ -141,7 +141,7 @@ impl ClauseLearner {
         trail: &Trail,
         seen: &HashSet<VarId, FastHasher>,
     ) {
-        
+
         let mut minimized_clause = vec![clause[0]]; // keep the uip
 
         for literal in clause.iter().skip(1) {

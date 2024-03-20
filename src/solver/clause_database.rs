@@ -88,7 +88,7 @@ impl ClauseDatabase {
             self.clauses.push(clause);
             self.clauses.len() - 1
         };
-        
+
         self.proof_logger.log(&self.clauses[id]);
         literal_watcher.add_clause(&self.clauses[id], id);
 
@@ -129,15 +129,15 @@ impl ClauseDatabase {
             return;
         }
 
-        if self.free_clause_ids.contains(&clause_id) {
-            return;
+        if self.free_clause_ids.binary_search(&clause_id).is_ok() {
+            panic!("Trying to delete already deleted clause");
         }
 
         // don't delete unit clauses
         if self.clauses[clause_id].literals.len() < 2 {
             return;
         }
-        
+
         self.proof_logger.delete(&self.clauses[clause_id]);
         literal_watcher.delete_clause(&self.clauses[clause_id], clause_id);
         self.free_clause_ids.push(clause_id);
@@ -146,6 +146,7 @@ impl ClauseDatabase {
 
     pub fn delete_clauses_if_necessary(
         &mut self,
+        conflict_clause_id: ClauseId,
         literal_watcher: &mut LiteralWatcher,
         trail: &Trail,
     ) {
@@ -156,8 +157,8 @@ impl ClauseDatabase {
 
         self.conflicts_since_last_deletion = 0;
         self.num_deletions += 1;
-        println!("Deleting clauses");
 
+        let num_clauses_before = self.clauses.len() - self.free_clause_ids.len();
         let mut lbds = self
             .iter()
             .filter_map(|clause_id| self[clause_id].lbd)
@@ -168,15 +169,21 @@ impl ClauseDatabase {
         // don't delete glue clauses (lbd == 2)
         let threshold = max(lbds[lbds.len() / 2], 2);
 
-        for clause_id in 0..self.clauses.len() {
+        for clause_id in self.iter().collect_vec() {
             if let Some(lbd) = self.clauses[clause_id].lbd {
                 if lbd <= threshold {
                     continue;
                 }
-
+                if clause_id == conflict_clause_id {
+                    // As clause deletion gets called right after a conflict, 
+                    // we have to ensure we don't delete the conflict clause
+                    continue;
+                }
                 self.delete_clause_if_allowed(clause_id, literal_watcher, trail);
             }
         }
+
+        println!("c Deleted {} of {} clauses", num_clauses_before - self.clauses.len() + self.free_clause_ids.len(), num_clauses_before);
     }
 }
 
@@ -184,8 +191,8 @@ impl Index<ClauseId> for ClauseDatabase {
     type Output = Clause;
 
     fn index(&self, index: ClauseId) -> &Self::Output {
-        debug_assert!(
-            !self.free_clause_ids.contains(&index),
+        assert!(
+            self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
         );
         &self.clauses[index]
@@ -194,8 +201,8 @@ impl Index<ClauseId> for ClauseDatabase {
 
 impl IndexMut<ClauseId> for ClauseDatabase {
     fn index_mut(&mut self, index: ClauseId) -> &mut Self::Output {
-        debug_assert!(
-            !self.free_clause_ids.contains(&index),
+        assert!(
+            self.free_clause_ids.binary_search(&index).is_err(),
             "Accessing deleted clause"
         );
         &mut self.clauses[index]

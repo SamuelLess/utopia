@@ -7,7 +7,7 @@ use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 
-const INPROCESSING_RATIO: f64 = 0.15;
+const INPROCESSING_RATIO: f64 = 100.0;
 
 const DETERMINISTIC: bool = false;
 // sat/ii32b4.cnf
@@ -34,11 +34,6 @@ impl Inprocessor {
             .map(|(var, _)| *var)
             .collect::<VecDeque<VarId>>();
 
-        println!(
-            "Ordered vars in {} ms",
-            start_time.elapsed().as_secs_f64() / 1000.0
-        );
-
         Inprocessor {
             bve_reconstruction_data: vec![],
             initialization_time: std::time::Instant::now(),
@@ -61,8 +56,6 @@ impl Inprocessor {
             trail.decision_level, 0,
             "Inprocessing called at decision level != 0"
         );
-
-        println!("Starting inprocessing");
 
         let units = trail
             .assignment_stack
@@ -99,8 +92,9 @@ impl Inprocessor {
         }
 
         println!(
-            "Inprocessing took {} ms",
-            self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0
+            "c Ran inprocessing for {} ms, resolved {} vars",
+            self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0,
+            self.resolved_vars
         );
 
         self.total_inprocessing_time += self.current_inprocessing_start.elapsed();
@@ -145,13 +139,10 @@ impl Inprocessor {
             }
         }
 
-        println!(
-            "Inprocessing finished. Resolved {} vars, {} left",
-            self.resolved_vars,
-            self.bve_queue.len()
-        );
-
         self.end_inprocessing(units, unit_propagator);
+        if self.bve_queue.is_empty() {
+            println!("c Inprocessing completed")
+        }
     }
 
     /// Reconstruction as described in M. Järvisalo, M. J. H. Heule, and A. Biere,
@@ -208,6 +199,7 @@ impl Inprocessor {
             // check for tautology
             if unique.len() == unique.iter().map(|lit| lit.id()).unique().count() {
                 resolution_clauses.push(Clause::from(unique.iter().map(|lit| **lit).collect_vec()));
+
             }
 
             if resolution_clauses.len() >= num_clauses_before {
@@ -216,6 +208,19 @@ impl Inprocessor {
         }
 
         self.resolved_vars += 1;
+
+        // add clauses as required clauses
+        for clause in &resolution_clauses {
+            let clause_id = state
+                .clause_database
+                .add_clause(clause.clone(), &mut state.literal_watcher);
+
+            // newly found units have to be enqueued
+            if clause.literals.len() == 1 {
+                unit_propagator.enqueue(clause.literals[0], clause_id);
+            }
+        }
+
         // delete old clauses
         for (any_occ, polarity_in_clause) in [(pos_occ, true), (neg_occ, false)] {
             for clause_id in any_occ.iter() {
@@ -232,20 +237,6 @@ impl Inprocessor {
                     &mut state.literal_watcher,
                     trail,
                 );
-                //state.verify_watches();
-            }
-        }
-
-        // add clauses as required clauses
-        for clause in &resolution_clauses {
-            let clause_id = state
-                .clause_database
-                .add_clause(clause.clone(), &mut state.literal_watcher);
-
-            // newly found units have to be enqueued
-            if clause.literals.len() == 1 {
-                println!("Enqueued newly generated unit");
-                unit_propagator.enqueue(clause.literals[0], clause_id);
             }
         }
 
