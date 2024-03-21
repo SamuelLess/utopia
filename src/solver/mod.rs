@@ -5,7 +5,7 @@ mod ema_policy;
 pub mod heuristic;
 mod inprocessor;
 mod literal_watching;
-mod progress;
+pub mod progress;
 mod proof_logger;
 pub mod restarts;
 pub mod state;
@@ -46,7 +46,7 @@ impl Solver {
 
     pub fn solve(&mut self) -> Solution {
         self.state.stats.start_timing();
-        let mut progress = Progress::new();
+        let mut progress = Progress::init(&self.config.progress_printing_interval);
 
         if self.is_trivially_unsat() {
             return None;

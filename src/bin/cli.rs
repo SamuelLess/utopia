@@ -4,6 +4,7 @@ use utopia::cnf::{check_assignment, Clause, VarId};
 use utopia::dimacs::{clauses_from_dimacs_file, solution_to_dimacs};
 use utopia::solver::config::Config;
 use utopia::solver::heuristic::HeuristicType;
+use utopia::solver::progress::ProgressPrintingInterval;
 use utopia::solver::restarts::RestartPolicy;
 use utopia::solver::statistics::StateStatistics;
 use utopia::solver::Solver;
@@ -30,6 +31,9 @@ struct Args {
 
     #[arg(long, default_value = "false")]
     no_inprocessing: bool,
+
+    #[arg(long, default_value = "medium")]
+    progress_printing: ProgressPrintingInterval,
 }
 
 fn main() {
@@ -45,6 +49,7 @@ fn main() {
             args.proof.clone(),
             args.restart_policy,
             !args.no_inprocessing,
+            args.progress_printing.clone(),
         ),
     );
 

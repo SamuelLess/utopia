@@ -1,7 +1,9 @@
 use crate::solver::statistics::StateStatistics;
+use clap::ValueEnum;
 use colored::{ColoredString, Colorize};
 
 pub struct Progress {
+    printing_interval: Option<std::time::Duration>,
     time_of_last_print: std::time::Instant,
     last_num_conflicts: usize,
     last_num_total_assignments: usize,
@@ -13,7 +15,17 @@ pub struct Progress {
     last_inprocessor_resolved: usize,
 }
 
-const PRINT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+#[derive(ValueEnum, Clone, PartialEq, Eq)]
+pub enum ProgressPrintingInterval {
+    #[clap(name = "short")]
+    Short,
+    #[clap(name = "medium")]
+    Medium,
+    #[clap(name = "long")]
+    Long,
+    #[clap(name = "off")]
+    Off,
+}
 
 const TIME: usize = 5;
 const CONFLICTS_TOTAL: usize = 10;
@@ -26,9 +38,20 @@ const INPROCESSOR_RESOLVED: usize = 11;
 const INPROCESSOR_TIME: usize = 10;
 
 impl Progress {
-    pub fn new() -> Self {
-        Self::print_header();
+    pub fn init(progress_printing_interval: &ProgressPrintingInterval) -> Self {
+        let printing_interval = match progress_printing_interval {
+            ProgressPrintingInterval::Short => Some(std::time::Duration::from_secs(1)),
+            ProgressPrintingInterval::Medium => Some(std::time::Duration::from_secs(5)),
+            ProgressPrintingInterval::Long => Some(std::time::Duration::from_secs(30)),
+            ProgressPrintingInterval::Off => None,
+        };
+
+        if printing_interval.is_some() {
+            Self::print_header();
+        }
+
         Progress {
+            printing_interval,
             time_of_last_print: std::time::Instant::now(),
             last_num_conflicts: 0,
             last_num_total_assignments: 0,
@@ -49,15 +72,17 @@ impl Progress {
         resolved_vars: usize,
         inprocessor_time: u128,
     ) {
-        if self.time_of_last_print.elapsed() > PRINT_INTERVAL {
-            self.print_progress(
-                state_statistics,
-                current_num_assignments,
-                current_num_clauses,
-                resolved_vars,
-                inprocessor_time,
-            );
-            self.time_of_last_print = std::time::Instant::now();
+        if let Some(interval) = self.printing_interval {
+            if self.time_of_last_print.elapsed() > interval {
+                self.print_progress(
+                    state_statistics,
+                    current_num_assignments,
+                    current_num_clauses,
+                    resolved_vars,
+                    inprocessor_time,
+                );
+                self.time_of_last_print = std::time::Instant::now();
+            }
         }
     }
 
@@ -224,16 +249,18 @@ impl Progress {
     }
 
     pub fn close_table(&self) {
-        println!(
-            "c └─\
+        if self.printing_interval.is_some() {
+            println!(
+                "c └─\
             {:─<TIME$}─┴─\
             {:─<CONFLICTS_TOTAL$}─┴─\
             {:─<RESTARTS_TOTAL$}─┴─\
             {:─<ASSIGNMENTS_TOTAL$}─{:─<ASSIGNED_VARS_NUM$}─{:─<ASSIGNED_VARS_PERC$}─┴─\
             {:─<CLAUSES_CUR$}─┴─\
             {:─<INPROCESSOR_RESOLVED$}─{:─<INPROCESSOR_TIME$}─┘",
-            "", "", "", "", "", "", "", "", ""
-        );
+                "", "", "", "", "", "", "", "", ""
+            );
+        }
     }
 
     fn print_delta(
