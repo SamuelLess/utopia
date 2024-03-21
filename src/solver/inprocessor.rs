@@ -9,8 +9,6 @@ use std::collections::{HashMap, VecDeque};
 
 const INPROCESSING_RATIO: f64 = 0.10;
 
-const DETERMINISTIC: bool = false;
-
 pub struct Inprocessor {
     bve_reconstruction_data: Vec<(Literal, Clause)>,
     initialization_time: std::time::Instant,
@@ -21,26 +19,26 @@ pub struct Inprocessor {
 }
 
 impl Inprocessor {
-    pub fn init(cnf: &Vec<Clause>) -> Self {
-        let lit_ocurrences = cnf
+    pub fn init(cnf: &[Clause]) -> Self {
+        let lit_occurrences = cnf
             .iter()
             .flat_map(|clause| clause.literals.iter())
             .counts();
 
-        let vars = lit_ocurrences
+        let vars = lit_occurrences
             .keys()
             .map(|lit| lit.id())
             .unique()
             .collect_vec();
 
-        let vars_ordered_by_occurences = vars
+        let vars_ordered_by_occurrences = vars
             .iter()
             .sorted_by_cached_key(|var_id| {
                 (
-                    lit_ocurrences
+                    lit_occurrences
                         .get(&Literal::from_value(**var_id, true))
                         .unwrap_or(&0)
-                        * lit_ocurrences
+                        * lit_occurrences
                             .get(&Literal::from_value(**var_id, true))
                             .unwrap_or(&0),
                     **var_id,
@@ -54,7 +52,7 @@ impl Inprocessor {
             initialization_time: std::time::Instant::now(),
             total_inprocessing_time: std::time::Duration::from_secs(0),
             current_inprocessing_start: std::time::Instant::now(),
-            bve_queue: vars_ordered_by_occurences,
+            bve_queue: vars_ordered_by_occurrences,
             resolved_vars: 0,
         }
     }
@@ -106,28 +104,15 @@ impl Inprocessor {
             unit_propagator.enqueue(unit_literal, conflict_clause_id);
         }
 
-        /*
-        println!(
-            "c Ran inprocessing for {} ms, resolved {} vars",
-            self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0,
-            self.resolved_vars
-        );*/
-
         self.total_inprocessing_time += self.current_inprocessing_start.elapsed();
     }
 
     pub fn should_interrupt(&self) -> bool {
-        if DETERMINISTIC {
-            return true;
-        }
         (self.total_inprocessing_time + self.current_inprocessing_start.elapsed()).as_secs_f64()
             > self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
     }
 
     pub fn should_start_inprocessing(&self) -> bool {
-        if DETERMINISTIC {
-            return true;
-        }
         self.total_inprocessing_time.as_secs_f64() + 0.1
             < self.initialization_time.elapsed().as_secs_f64() * INPROCESSING_RATIO
     }

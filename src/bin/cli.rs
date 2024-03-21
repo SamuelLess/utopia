@@ -15,10 +15,6 @@ struct Args {
     #[arg(index = 1)]
     file: String,
 
-    /// Output path for solution
-    #[arg(short, long, global = true, help = "Output path for solution")]
-    out: Option<String>,
-
     /// Proof file
     #[arg(short, long, help = "Path to put proof file")]
     proof: Option<String>,
@@ -38,12 +34,12 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    
+
     println!("{}", BANNER);
     let dimacs = clauses_from_dimacs_file(&args.file).unwrap();
 
     let mut solver = Solver::new(
-        &dimacs.clauses,
+        dimacs.clauses.clone(),
         dimacs.num_vars,
         Config::new(
             args.heuristic.clone(),

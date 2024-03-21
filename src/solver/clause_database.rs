@@ -23,7 +23,7 @@ impl Debug for ClauseDatabase {
         for clause in &self.clauses {
             writeln!(f, "LBD: {:?} {:?} ", clause.lbd, clause.literals)?;
         }
-        writeln!(f, "")
+        Ok(())
     }
 }
 
@@ -158,7 +158,6 @@ impl ClauseDatabase {
         self.conflicts_since_last_deletion = 0;
         self.num_deletions += 1;
 
-        let num_clauses_before = self.clauses.len() - self.free_clause_ids.len();
         let mut lbds = self
             .iter()
             .filter_map(|clause_id| self[clause_id].lbd)
@@ -175,20 +174,13 @@ impl ClauseDatabase {
                     continue;
                 }
                 if clause_id == conflict_clause_id {
-                    // As clause deletion gets called right after a conflict, 
+                    // As clause deletion gets called right after a conflict,
                     // we have to ensure we don't delete the conflict clause
                     continue;
                 }
                 self.delete_clause_if_allowed(clause_id, literal_watcher, trail);
             }
         }
-
-        /*
-        println!(
-            "c Deleted {} of {} clauses",
-            num_clauses_before - self.clauses.len() + self.free_clause_ids.len(),
-            num_clauses_before
-        );*/
     }
 
     pub fn num_clauses(&self) -> usize {

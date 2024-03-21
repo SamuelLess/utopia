@@ -18,7 +18,6 @@ use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::inprocessor::Inprocessor;
 use crate::solver::progress::Progress;
-use crate::solver::proof_logger::ProofLogger;
 use crate::solver::restarts::Restarter;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
@@ -34,11 +33,11 @@ pub struct Solver {
 }
 
 impl Solver {
-    pub fn new(clauses: &Vec<Clause>, n_vars: usize, config: Config) -> Self {
+    pub fn new(clauses: Vec<Clause>, n_vars: usize, config: Config) -> Self {
         let clause_learner = ClauseLearner::default();
 
         Solver {
-            state: State::init(clauses.clone(), n_vars, config.proof_file.is_some()),
+            state: State::init(clauses, n_vars, config.proof_file.is_some()),
             clause_learner,
             config,
         }
@@ -195,9 +194,7 @@ impl Solver {
     fn get_solution(&self, inprocessor: &mut Inprocessor) -> HashMap<VarId, bool> {
         let mut assignment = self.state.get_assignment();
         for var in 1..=self.state.num_vars {
-            if !assignment.contains_key(&var) {
-                assignment.insert(var, true);
-            }
+            assignment.entry(var).or_insert(true);
         }
         if self.config.inprocessing {
             inprocessor.reconstruct_solution(&mut assignment);

@@ -8,7 +8,7 @@ use std::str::FromStr;
 type FastHasher = BuildHasherDefault<FnvHasher>;
 use crate::solver::trail::{Assignment, Trail};
 
-pub fn check_assignment(clauses: &Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
+pub fn check_assignment(clauses: &[Clause], assignment: HashMap<VarId, bool>) -> bool {
     clauses.iter().all(|clause| {
         clause.clone().any(|lit| {
             if let Some(assignment_value) = assignment.get(&(lit.id())) {

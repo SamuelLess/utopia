@@ -1,6 +1,9 @@
+<p>
+    <img style="width: 100%" align="center" src="./benches/utopia_logo.svg" alt="absolute benches">
+</p>
+
 # Project 3: _Utopia_
 
----
 Utopia is a modern CDCL SAT solver written in Rust.
 
 ## Techniques
@@ -102,7 +105,7 @@ and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) i
 1. Clone the repository:
 
    ```bash
-   git clone git@gitlab2.cip.ifi.lmu.de:??/utopia.git
+   git clone git@gitlab2.cip.ifi.lmu.de:glodny/utopia.git
    ```
 
 2. Navigate to the project directory:
@@ -138,7 +141,6 @@ The output is valid DIMACS itself and can be piped to other programs if desired.
 
 ### Options
 
-- `-o, --out <OUT>`: Output path for solution
 - `-p, --proof <PROOF>`: Path to put proof file
 - `--heuristic <HEURISTIC>`: Variable selection heuristic
     - decay, true-first, vmtf, vsids
@@ -182,17 +184,20 @@ writes the solution to `solution.txt`:
 </tr>
 </table>
 
-### Utopia in the SAT 2009 competition (100s timeout)
 
-<p align="center">
+<br>
+<br>
+
+<table>
+<tr>
+    <td>    
         <img align="center" src="./benches/satcomp_2009_crafted.svg" alt="absolute benches">
-</p>
-
-### Utopia solving the .cnf files of the DPLL project
-
-<p align="center">
+    </td>
+    <td>    
         <img align="center" src="./benches/lecture.svg" alt="absolute benches">
-</p>
+    </td>
+</tr>
+</table>
 
 ## References
 
@@ -245,4 +250,4 @@ This project is licensed under the GPL License - see the [LICENSE](LICENSE) file
 
 ## Authors
 
-Niels Glodny, Samuel Leßmann and Christian Wagner
+Niels Glodny, Samuel Leßmann and Christian Wagner (Group S)

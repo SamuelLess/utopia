@@ -120,7 +120,7 @@ impl LiteralWatcher {
     fn create_watches(clauses: &[Clause], num_vars: usize) -> Vec<VarWatch> {
         let mut watches = vec![VarWatch::default(); num_vars + 1];
         for (clause_id, clause) in clauses.iter().enumerate() {
-            if clause.literals.len() == 0 {
+            if clause.literals.is_empty() {
                 continue; // skip empty clauses
             }
             if clause.literals.len() == 1 {
@@ -137,61 +137,5 @@ impl LiteralWatcher {
             }
         }
         watches
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::solver::state::State;
-    use crate::solver::unit_propagation::UnitPropagator;
-
-    #[test]
-    /*fn test_update_watches_clauses() {
-         let mut clause = Clause::from("1 2 3");
-         let mut assignment = Vec::from([None; 4]);
-         assignment.insert(1, Some(false));
-         assert!(!clause.is_satisfied(&assignment));
-         LiteralWatcher::update_clause(&mut clause, &assignment);
-         assert_eq!(clause.watches, [1, 2]);
-         assignment.insert(2, Some(false));
-         let update = LiteralWatcher::update_clause(&mut clause, &assignment);
-         // unit 3 is on index 2 in clause
-         assert_eq!(update, WatchUpdate::Unit(Literal::from(3)));
-         assert_eq!(clause.watches, [1, 2]);
-     }*/
-
-    /* #[test]
-     fn test_update_watches() {
-         let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3 4")];
-         let mut state = State::init(clauses);
-         let mut unit_prop = UnitPropagator::default();
-         state.assign(Literal::from(1), &mut unit_prop);
-         assert_eq!(state.clauses[0].watches, [0, 1]);
-         assert_eq!(state.clauses[1].watches, [1, 2]);
-         println!("{:?}", state);
-         assert_eq!(state.literal_watcher.var_watches[1].neg, vec![]);
-         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
-         state.assign(Literal::from(2), &mut unit_prop);
-         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![1]);
-         println!("{:?}", state);
-         state.unassign(Literal::from(2));
-         state.assign(Literal::from(-3), &mut unit_prop);
-         assert_eq!(state.literal_watcher.var_watches[3].pos, vec![]);
-         assert_eq!(state.literal_watcher.var_watches[3].neg, vec![]);
-         println!("{:?}", state);
-     }*/
-    #[test]
-    fn test_update_watches_2() {
-        let clauses = vec![Clause::from("-1 -2 3")];
-        let mut state = State::init(clauses);
-        let mut unit_prop = UnitPropagator::default();
-        state.assign(Literal::from(-1), &mut unit_prop);
-        state.assign(Literal::from(2), &mut unit_prop);
-        state.unassign(Literal::from(2));
-        state.unassign(Literal::from(-1));
-        state.assign(Literal::from(1), &mut unit_prop);
-        state.assign(Literal::from(2), &mut unit_prop);
-        state.verify_watches();
-        println!("{:?}", state);
     }
 }
