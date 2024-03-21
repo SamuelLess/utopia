@@ -91,11 +91,12 @@ impl Inprocessor {
             unit_propagator.enqueue(unit_literal, conflict_clause_id);
         }
 
+        /*
         println!(
             "c Ran inprocessing for {} ms, resolved {} vars",
             self.current_inprocessing_start.elapsed().as_secs_f64() * 1000.0,
             self.resolved_vars
-        );
+        );*/
 
         self.total_inprocessing_time += self.current_inprocessing_start.elapsed();
     }
@@ -140,9 +141,10 @@ impl Inprocessor {
         }
 
         self.end_inprocessing(units, unit_propagator);
+        /*
         if self.bve_queue.is_empty() {
             println!("c Inprocessing completed")
-        }
+        }*/
     }
 
     /// Reconstruction as described in M. Järvisalo, M. J. H. Heule, and A. Biere,
@@ -199,7 +201,6 @@ impl Inprocessor {
             // check for tautology
             if unique.len() == unique.iter().map(|lit| lit.id()).unique().count() {
                 resolution_clauses.push(Clause::from(unique.iter().map(|lit| **lit).collect_vec()));
-
             }
 
             if resolution_clauses.len() >= num_clauses_before {
