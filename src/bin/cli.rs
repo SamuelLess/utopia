@@ -38,7 +38,8 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-
+    
+    println!("{}", BANNER);
     let dimacs = clauses_from_dimacs_file(&args.file).unwrap();
 
     let mut solver = Solver::new(
@@ -65,7 +66,7 @@ fn create_output(
     solution: &Option<HashMap<VarId, bool>>,
     stats: &StateStatistics,
 ) -> String {
-    let mut output = format!("c {}", BANNER);
+    let mut output = String::new();
     output.push_str(format!("\nFile\n{}\n", args.file).as_str());
     output.push_str(format!("\n{}\n", stats.to_table()).as_str());
     // verify solution
@@ -84,11 +85,10 @@ fn create_output(
     output
 }
 
-const BANNER: &str = r#"
-          _                     
-    _   _| |_ ___  _ __  _  __ _ 
-   | | | | __/ _ \| '_ \| |/ _` |
-   | |_| | || (_) | |_) | | (_| |
-    \__,_|\__\___/| .__/|_|\__,_|
-                  |_|            
-"#;
+const BANNER: &str = r#"c          _                     
+c    _   _| |_ ___  _ __  _  __ _ 
+c   | | | | __/ _ \| '_ \| |/ _` |
+c   | |_| | || (_) | |_) | | (_| |
+c    \__,_|\__\___/| .__/|_|\__,_|
+c                  |_|            
+c"#;

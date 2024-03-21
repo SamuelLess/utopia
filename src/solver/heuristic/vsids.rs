@@ -19,7 +19,7 @@ pub struct HeuristicVSIDS {
     conflict_index: f64,
 }
 
-const BUMP_BASIS: f64 = 1.01;
+const BUMP_BASIS: f64 = 1.1;
 
 impl HeuristicVSIDS {
     fn rescale(&mut self, factor: f64) {
