@@ -4,6 +4,7 @@ use colored::{ColoredString, Colorize};
 
 pub struct Progress {
     printing_interval: Option<std::time::Duration>,
+    header_is_printed: bool,
     time_of_last_print: std::time::Instant,
     last_num_conflicts: usize,
     last_num_total_assignments: usize,
@@ -46,13 +47,10 @@ impl Progress {
             ProgressPrintingInterval::Off => None,
         };
 
-        if printing_interval.is_some() {
-            Self::print_header();
-        }
-
         Progress {
             printing_interval,
             time_of_last_print: std::time::Instant::now(),
+            header_is_printed: false,
             last_num_conflicts: 0,
             last_num_total_assignments: 0,
             last_num_cur_assignments: 0,
@@ -74,6 +72,11 @@ impl Progress {
     ) {
         if let Some(interval) = self.printing_interval {
             if self.time_of_last_print.elapsed() > interval {
+                if !self.header_is_printed {
+                    Self::print_header();
+                    self.header_is_printed = true;
+                }
+
                 self.print_progress(
                     state_statistics,
                     current_num_assignments,
@@ -249,7 +252,7 @@ impl Progress {
     }
 
     pub fn close_table(&self) {
-        if self.printing_interval.is_some() {
+        if self.printing_interval.is_some() && self.header_is_printed {
             println!(
                 "c └─\
             {:─<TIME$}─┴─\
