@@ -159,6 +159,7 @@ impl ClauseDatabase {
         self.num_deletions += 1;
 
         let num_clauses_before = self.clauses.len() - self.free_clause_ids.len();
+
         let mut lbds = self
             .iter()
             .filter_map(|clause_id| self[clause_id].lbd)

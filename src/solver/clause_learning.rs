@@ -17,7 +17,7 @@ impl ClauseLearner {
     pub fn analyse_conflict(
         &mut self,
         trail: &mut Trail,
-        clause_database: &ClauseDatabase,
+        clause_database: &mut ClauseDatabase,
         conflict_clause_id: ClauseId,
     ) -> (Clause, usize) {
         let mut learned_clause = vec![];
@@ -30,7 +30,8 @@ impl ClauseLearner {
         let mut seen: HashSet<VarId, FastHasher> = HashSet::with_hasher(FastHasher::default());
 
         loop {
-            let conflict_clause = &clause_database[current_reason_clause_id];
+            let conflict_clause = &mut clause_database[current_reason_clause_id];
+            conflict_clause.update_lbd(trail);
 
             for lit in conflict_clause.literals.clone() {
                 if current_literal.is_some() && lit.id() == current_literal.unwrap().id() {

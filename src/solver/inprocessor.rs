@@ -7,7 +7,7 @@ use crate::solver::unit_propagation::UnitPropagator;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 
-const INPROCESSING_RATIO: f64 = 0.15;
+const INPROCESSING_RATIO: f64 = 0.10;
 
 const DETERMINISTIC: bool = false;
 // sat/ii32b4.cnf
@@ -23,15 +23,17 @@ pub struct Inprocessor {
 
 impl Inprocessor {
     pub fn init(cnf: &Vec<Clause>) -> Self {
-        let start_time = std::time::Instant::now();
-        let vars_ordered_by_occurences = cnf
+        let lit_ocurrences = cnf
             .iter()
             .flat_map(|clause| clause.literals.iter())
-            .map(|literal| literal.id())
-            .counts()
+            .counts();
+
+        let vars = lit_ocurrences.keys().map(|lit| lit.id()).unique().collect_vec();
+        
+        let vars_ordered_by_occurences = vars
             .iter()
-            .sorted_by_cached_key(|(var_id, &count)| (count, **var_id))
-            .map(|(var, _)| *var)
+            .sorted_by_cached_key(|var_id| (lit_ocurrences[&Literal::from_value(**var_id, true)] * lit_ocurrences[&Literal::from_value(**var_id, true)], **var_id))
+            .copied()
             .collect::<VecDeque<VarId>>();
 
         Inprocessor {

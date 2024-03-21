@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Neg;
 use std::str::FromStr;
+use fnv::FnvHasher;
+use std::hash::BuildHasherDefault;
 
-use crate::solver::trail::Assignment;
+type FastHasher = BuildHasherDefault<FnvHasher>;
+use crate::solver::trail::{Assignment, Trail};
 
 pub fn check_assignment(clauses: &Vec<Clause>, assignment: HashMap<VarId, bool>) -> bool {
     clauses.iter().all(|clause| {
@@ -132,6 +135,22 @@ impl Clause {
             literals,
             lbd: Some(lbd),
         }
+    }
+
+    pub fn update_lbd(&mut self, trail: &mut Trail) {
+        if let Some(old_lbd) = self.lbd {
+            let new_lbd = self.literals
+                .iter()
+                .map(|lit| trail.var_decision_level[lit.id()])
+                .collect::<HashSet<_, FastHasher>>()
+                .len();
+
+            if new_lbd < old_lbd {
+                self.lbd = Some(new_lbd);
+            }
+        }
+
+
     }
 
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {

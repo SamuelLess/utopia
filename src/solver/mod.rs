@@ -79,7 +79,7 @@ impl Solver {
                 // find conflict clause
                 let (new_clause, assertion_level) = self.clause_learner.analyse_conflict(
                     &mut trail,
-                    &self.state.clause_database,
+                    &mut self.state.clause_database,
                     conflict_clause_id,
                 );
 

@@ -95,8 +95,8 @@ impl State {
         }
 
         self.literal_watcher
-            .affected_clauses(-lit)
-            .retain(|&id| id != MARKED_FOR_DELETION);
+            .affected_clauses(lit)
+            .retain(|id| *id != MARKED_FOR_DELETION);
     }
 
     pub fn unassign(&mut self, lit: Literal) {
