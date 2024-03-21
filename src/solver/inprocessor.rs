@@ -28,11 +28,25 @@ impl Inprocessor {
             .flat_map(|clause| clause.literals.iter())
             .counts();
 
-        let vars = lit_ocurrences.keys().map(|lit| lit.id()).unique().collect_vec();
-        
+        let vars = lit_ocurrences
+            .keys()
+            .map(|lit| lit.id())
+            .unique()
+            .collect_vec();
+
         let vars_ordered_by_occurences = vars
             .iter()
-            .sorted_by_cached_key(|var_id| (lit_ocurrences[&Literal::from_value(**var_id, true)] * lit_ocurrences[&Literal::from_value(**var_id, true)], **var_id))
+            .sorted_by_cached_key(|var_id| {
+                (
+                    lit_ocurrences
+                        .get(&Literal::from_value(**var_id, true))
+                        .unwrap_or(&0)
+                        * lit_ocurrences
+                            .get(&Literal::from_value(**var_id, true))
+                            .unwrap_or(&0),
+                    **var_id,
+                )
+            })
             .copied()
             .collect::<VecDeque<VarId>>();
 

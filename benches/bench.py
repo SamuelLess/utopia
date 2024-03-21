@@ -13,10 +13,10 @@ import tqdm
 from matplotlib import pyplot as plt
 from plotnine import *
 
-plt.rcParams['text.usetex'] = True
+#plt.rcParams['text.usetex'] = True
 plt.rcParams["font.family"] = "serif"
 
-TIMEOUT = 10
+TIMEOUT = 20
 FILENAME = f"results-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
 
 # This a python script to create cactus plots to compare various versions
@@ -53,7 +53,8 @@ SOLVERS = {
 
 BENCHMARK_SETS = {
     'lecture': "../testfiles/lecture_testfiles",
-    '2006': "../testfiles/competitions/2006"
+    '2006': "../testfiles/competitions/2006",
+    '2008': "../testfiles/competitions/2008",
 }
 
 
@@ -178,10 +179,13 @@ def create_plot(data, show=True, assignments=False, solvers=[]):
     # change colormap
     plot = plot + scale_color_manual(
         values=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"])
-
-    plot.save(f'{FILENAME}.svg', verbose=False)
-    if show:
-        plot.draw(show=show)
+    try:
+        plot.save(f'{FILENAME}.svg', verbose=False)
+        if show:
+            plot.draw(show=show)
+    except Exception as e:
+        print(e)
+        print("Could not save plot. Is the file open?")
 
 
 last_intermediate_plot_creation = 0
@@ -192,7 +196,10 @@ def create_plot_occasionally(data, solvers):
     if time() - last_intermediate_plot_creation > 30:
         last_intermediate_plot_creation = time()
         if len(data) > 2:
-            create_plot(data, show=False, solvers=solvers)
+            try:
+                create_plot(data, show=False, solvers=solvers)
+            except Exception as e:
+                print(e)
 
 
 def main():
