@@ -159,7 +159,6 @@ impl ClauseDatabase {
         self.num_deletions += 1;
 
         let num_clauses_before = self.clauses.len() - self.free_clause_ids.len();
-
         let mut lbds = self
             .iter()
             .filter_map(|clause_id| self[clause_id].lbd)
@@ -176,7 +175,7 @@ impl ClauseDatabase {
                     continue;
                 }
                 if clause_id == conflict_clause_id {
-                    // As clause deletion gets called right after a conflict,
+                    // As clause deletion gets called right after a conflict, 
                     // we have to ensure we don't delete the conflict clause
                     continue;
                 }
@@ -184,11 +183,16 @@ impl ClauseDatabase {
             }
         }
 
+        /*
         println!(
             "c Deleted {} of {} clauses",
             num_clauses_before - self.clauses.len() + self.free_clause_ids.len(),
             num_clauses_before
-        );
+        );*/
+    }
+
+    pub fn num_clauses(&self) -> usize {
+        self.clauses.len() - self.free_clause_ids.len()
     }
 }
 

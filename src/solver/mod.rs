@@ -5,6 +5,7 @@ mod ema_policy;
 pub mod heuristic;
 mod inprocessor;
 mod literal_watching;
+mod progress;
 mod proof_logger;
 pub mod restarts;
 pub mod state;
@@ -16,6 +17,8 @@ use crate::cnf::{Clause, Literal, Solution, VarId};
 use crate::solver::clause_learning::ClauseLearner;
 use crate::solver::config::Config;
 use crate::solver::inprocessor::Inprocessor;
+use crate::solver::progress::Progress;
+use crate::solver::proof_logger::ProofLogger;
 use crate::solver::restarts::Restarter;
 use crate::solver::state::State;
 use crate::solver::statistics::StateStatistics;
@@ -60,7 +63,6 @@ impl Solver {
                 .map(|clause_id| self.state.clause_database[clause_id].clone())
                 .collect_vec(),
         );
-
         self.enqueue_initial_units(&mut unit_propagator);
 
         loop {
@@ -98,6 +100,7 @@ impl Solver {
                 trail.backtrack(&mut self.state, heuristic.as_mut(), assertion_level);
             } else if self.state.check_satisfied_and_update_blocking_literals() {
                 self.state.stats.stop_timing();
+                progress.close_table();
                 return Some(self.get_solution(&mut inprocessor));
             } else if restarter.check_if_restart_necessary() {
                 self.state.stats.num_restarts += 1;
@@ -121,8 +124,15 @@ impl Solver {
                     AssignmentReason::Heuristic,
                 );
             }
+
+            progress.print_progress_if_necessary(
+                &self.state.stats,
+                trail.assignment_stack.len(),
+                self.state.clause_database.num_clauses(),
+            );
         }
         self.state.stats.stop_timing();
+        progress.close_table();
         if let Some(proof_file) = self.config.proof_file.as_ref() {
             println!("c Writing proof to file");
             self.state
