@@ -8,6 +8,7 @@ use crate::solver::trail::Assignment;
 
 use fnv::FnvHasher;
 use std::hash::BuildHasherDefault;
+use itertools::Itertools;
 
 type FastHasher = BuildHasherDefault<FnvHasher>;
 
@@ -18,7 +19,7 @@ pub struct HeuristicVSIDS {
     conflict_index: f64,
 }
 
-const BUMP_BASIS: f64 = 1.1;
+const BUMP_BASIS: f64 = 1.01;
 
 impl HeuristicVSIDS {
     fn rescale(&mut self, factor: f64) {
@@ -47,10 +48,22 @@ impl HeuristicVSIDS {
 
 impl Heuristic for HeuristicVSIDS {
     fn init(state: &State) -> Self {
+            
+        let var_counts = state
+            .clause_database
+            .iter()
+            .flat_map(|clause| state.clause_database[clause].literals.iter().map(|lit| lit.id()))
+            .counts();
+        
+        let initial_priorities = (0..=state.vars.len())
+            .map(|var| *var_counts.get(&(var as VarId)).unwrap_or(&0) as f64 + 0.1)
+            .collect_vec();
+        
         // start out with all variables having a heuristic value of 1 and set to true
         HeuristicVSIDS {
-            priorities: vec![NotNan::new(1.0).unwrap(); state.vars.len() + 1],
+            priorities: initial_priorities.iter().map(|&p| NotNan::new(p).unwrap()).collect(),
             order: (1..state.vars.len())
+                .sorted_by_key(|id| NotNan::new(initial_priorities[*id]).unwrap())
                 .map(|id| (id, NotNan::new(1.0).unwrap()))
                 .collect(),
             conflict_index: 0.0,
