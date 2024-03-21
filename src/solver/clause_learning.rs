@@ -82,9 +82,6 @@ impl ClauseLearner {
             trail.decision_level
         );
 
-        // TODO: can first and second literal also be minimized??
-        // TODO: where should conflict_clause_minimization be called?
-
         self.conflict_clause_minimization(&mut learned_clause, clause_database, trail, &seen);
 
         // learned clause is UIP

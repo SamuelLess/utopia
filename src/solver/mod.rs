@@ -46,6 +46,7 @@ impl Solver {
 
     pub fn solve(&mut self) -> Solution {
         self.state.stats.start_timing();
+        let mut progress = Progress::new();
 
         if self.is_trivially_unsat() {
             return None;
@@ -129,6 +130,8 @@ impl Solver {
                 &self.state.stats,
                 trail.assignment_stack.len(),
                 self.state.clause_database.num_clauses(),
+                inprocessor.resolved_vars,
+                inprocessor.total_inprocessing_time.as_millis(),
             );
         }
         self.state.stats.stop_timing();

@@ -10,15 +10,14 @@ use std::collections::{HashMap, VecDeque};
 const INPROCESSING_RATIO: f64 = 0.10;
 
 const DETERMINISTIC: bool = false;
-// sat/ii32b4.cnf
 
 pub struct Inprocessor {
     bve_reconstruction_data: Vec<(Literal, Clause)>,
     initialization_time: std::time::Instant,
-    total_inprocessing_time: std::time::Duration,
+    pub total_inprocessing_time: std::time::Duration,
     current_inprocessing_start: std::time::Instant,
     bve_queue: VecDeque<VarId>,
-    resolved_vars: usize,
+    pub resolved_vars: usize,
 }
 
 impl Inprocessor {

@@ -1,9 +1,9 @@
+use fnv::FnvHasher;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::BuildHasherDefault;
 use std::ops::Neg;
 use std::str::FromStr;
-use fnv::FnvHasher;
-use std::hash::BuildHasherDefault;
 
 type FastHasher = BuildHasherDefault<FnvHasher>;
 use crate::solver::trail::{Assignment, Trail};
@@ -139,7 +139,8 @@ impl Clause {
 
     pub fn update_lbd(&mut self, trail: &mut Trail) {
         if let Some(old_lbd) = self.lbd {
-            let new_lbd = self.literals
+            let new_lbd = self
+                .literals
                 .iter()
                 .map(|lit| trail.var_decision_level[lit.id()])
                 .collect::<HashSet<_, FastHasher>>()
@@ -149,8 +150,6 @@ impl Clause {
                 self.lbd = Some(new_lbd);
             }
         }
-
-
     }
 
     pub fn is_satisfied(&self, vars: &[Option<bool>]) -> bool {
@@ -168,7 +167,6 @@ impl Clause {
         self.blocking_literal.is_true(vars)
     }
 
-    // TODO: find a more performant way to do this
     pub fn resolution(self, other: Self) -> Self {
         let mut new_literals = self.literals.clone();
         new_literals.extend(other.literals);
