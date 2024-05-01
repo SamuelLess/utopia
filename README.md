@@ -1,5 +1,5 @@
-<p>
-    <img style="width: 50%; display: block; margin-left: auto; margin-right: auto" src="./benches/UTOPIA.png" alt="UTOPIA logo">
+<p align="center">
+    <img style="width: 30%; display: block; margin-left: auto; margin-right: auto" src="./benches/UTOPIA.png" alt="UTOPIA logo">
 </p>
 
 # Project 3: _Utopia_
