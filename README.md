@@ -1,5 +1,5 @@
 <p>
-    <img style="width: 100%" align="center" src="./benches/utopia_logo.svg" alt="absolute benches">
+    <img style="width: 50%; display: block; margin-left: auto; margin-right: auto" src="./benches/UTOPIA.png" alt="UTOPIA logo">
 </p>
 
 # Project 3: _Utopia_
@@ -105,7 +105,7 @@ and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) i
 1. Clone the repository:
 
    ```bash
-   git clone git@gitlab2.cip.ifi.lmu.de:glodny/utopia.git
+   git clone git@github.com:SamuelLess/utopia.git
    ```
 
 2. Navigate to the project directory:
@@ -167,34 +167,65 @@ writes the solution to `solution.txt`:
 
 ## Benchmarks
 
-### Utopia vs. Minisat in the SAT 2006 Race
-
 <table>
 <tr>
-    <td align="center">Linear scale</td>
-    <td align="center">Logarithmic scale</td>
+    <th colspan="2">
+        <h3 style="margin: 1px">SAT Race 2006</h3>
+    </th>
 </tr>
 <tr>
-    <td>    
-        <img align="center" src="./benches/race_2006.svg" alt="absolute benches">
+    <td style="text-align: center; width: 50%">    
+        <img src="./benches/2006_race.svg" alt="Race 2006, linear scale">
+        <br>
+        Linear scale
     </td>
-    <td>    
-        <img align="center" src="./benches/race_2006_log.svg" alt="absolute benches">
+    <td style="text-align: center; width: 50%">    
+        <img src="./benches/2006_race_log.svg" alt="Race 2006, logarithmic scale">
+        <br>       
+        Logarithmic scale
     </td>
 </tr>
 </table>
 
-
-<br>
-<br>
+<table>
+<tr>
+    <th>
+        <h3 style="margin: 1px">
+            SAT Competition 2009 <br> (Crafted Instances)
+        </h3>
+    </th>
+    <th>
+        <h3 style="margin: 1px">
+            SAT Competition 2011 <br> (Application Instances)
+        </h3>
+    </th>
+</tr>
+<tr>
+    <td style="width: 50%">
+        <img src="./benches/2009_crafted.csv.svg" alt="Competition 2009, crafted">
+    </td>
+    <td style="width: 50%">
+        <img src="./benches/2011_application.csv.svg" alt="Competition 2011, application">
+    </td>
+</tr>
+</table>
 
 <table>
 <tr>
-    <td>    
-        <img align="center" src="./benches/satcomp_2009_crafted.svg" alt="absolute benches">
+    <th colspan="2">
+        <h3 style="margin: 1px">DPLL solver testfiles ("lecture testfiles")</h3>
+    </th>
+</tr>
+<tr>
+    <td style="text-align: center; width: 50%">    
+        <img src="./benches/lecture_utopia_minisat.svg" alt="DPLL testfiles, Utopia vs. Minisat">
+        <br>
+        Utopia vs. Minisat
     </td>
-    <td>    
-        <img align="center" src="./benches/lecture.svg" alt="absolute benches">
+    <td style="text-align: center; width: 50%">    
+        <img src="./benches/lecture_utopia_arcane.svg" alt="DPLL testfiles, Utopia vs. Arcane">
+        <br>       
+        Utopia vs. Arcane
     </td>
 </tr>
 </table>
