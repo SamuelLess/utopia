@@ -2,9 +2,9 @@
     <img style="width: 30%; display: block; margin-left: auto; margin-right: auto" src="./benches/UTOPIA.png" alt="UTOPIA logo">
 </p>
 
-# Project 3: _Utopia_
+# _Utopia_
 
-Utopia is a modern CDCL SAT solver written in Rust.
+Utopia is a modern and easy to read CDCL SAT solver written in Rust.
 
 ## Techniques
 
@@ -281,4 +281,4 @@ This project is licensed under the GPL License - see the [LICENSE](LICENSE) file
 
 ## Authors
 
-Niels Glodny, Samuel Leßmann and Christian Wagner (Group S)
+Written by Niels Glodny, Samuel Leßmann and Christian Wagner. Utopia was created during the course 'SAT Solving' held by Jan Johannsen at LMU in 2023.
