@@ -275,6 +275,7 @@ Feb. 2018, doi: 10.1142/S0218213018400018.
 
 <p style="padding-left: 1.5em; text-indent: -1.35em">[10] M. Luby, A. Sinclair, and D. Zuckerman, ‘Optimal speedup of Las Vegas algorithms’, in [1993] The 2nd Israel Symposium on Theory and Computing Systems, Jun. 1993, pp. 128–133. doi: 10.1109/ISTCS.1993.253477.
 </p>
+
 ## License
 
 This project is licensed under the GPL License - see the [LICENSE](LICENSE) file for details.
