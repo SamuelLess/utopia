@@ -190,7 +190,7 @@ mod tests {
             Clause::from("10 -11"),    // 9
             Clause::from("-12 13"),    // 10
         ];
-        let mut state = State::init(cnf.clone());
+        let mut state = State::init(cnf.clone(), 13, false);
         let mut clause_learner = ClauseLearner::default();
         let mut brancher = Trail::new(13);
         let mut unit_propagator = UnitPropagator::default();
@@ -224,7 +224,7 @@ mod tests {
         println!("{:?}", brancher.assignment_stack);
         let clause = clause_learner.analyse_conflict(
             &mut brancher,
-            &state.clause_database,
+            &mut state.clause_database,
             state.conflict_clause_id.clone().unwrap(),
         );
         println!("learned clause {:?}", clause);
@@ -242,7 +242,7 @@ mod tests {
             Clause::from("-1 4 -6"),  // 5
             Clause::from("-1 -5 -6"), // 6
         ];
-        let mut state = State::init(cnf.clone());
+        let mut state = State::init(cnf.clone(), 6, false);
         let mut clause_learner = ClauseLearner::default();
         let mut trail = Trail::new(state.num_vars);
         let mut unit_propagator = UnitPropagator::default();
@@ -263,7 +263,7 @@ mod tests {
         println!("{:#?}", trail.assignment_stack);
         let learned_clause = clause_learner.analyse_conflict(
             &mut trail,
-            &state.clause_database,
+            &mut state.clause_database,
             state.conflict_clause_id.unwrap(),
         );
         println!("{:?}", learned_clause);
@@ -279,7 +279,7 @@ mod tests {
             Clause::from("-6 -8"),    // 4
             Clause::from("7 8"),      // 5
         ];
-        let mut state = State::init(cnf.clone());
+        let mut state = State::init(cnf.clone(), 8, false);
         let mut unit_propagator = UnitPropagator::default();
         let mut trail = Trail::new(state.num_vars);
         let mut clause_learner = ClauseLearner::default();
@@ -296,7 +296,7 @@ mod tests {
         println!("{}", trail.implication_graph(&state));
         let learned_clause = clause_learner.analyse_conflict(
             &mut trail,
-            &state.clause_database,
+            &mut state.clause_database,
             state.conflict_clause_id.unwrap(),
         );
         println!("{:?}", learned_clause);

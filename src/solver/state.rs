@@ -190,7 +190,7 @@ mod tests {
             Clause::from("1 -2 3"),
             Clause::from("-1 -2 3"),
         ];
-        let state = State::init(clauses);
+        let state = State::init(clauses, 3, false);
         assert_eq!(state.num_vars, 3);
         assert_eq!(state.vars, vec![None, None, None, None]);
         //assert_eq!(state.clause_database.len(), 3);
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn test_state_assign() {
         let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3")];
-        let mut state = State::init(clauses);
+        let mut state = State::init(clauses, 3, false);
         let mut unit_prop = UnitPropagator::default();
         state.assign(Literal::from(1), &mut unit_prop);
         assert_eq!(state.vars[1], Some(true));
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_var_watches() {
         let clauses = vec![Clause::from("1 2 3"), Clause::from("-1 -2 3")];
-        let mut state = State::init(clauses);
+        let mut state = State::init(clauses, 3, false);
         let mut unit_prop = UnitPropagator::default();
         println!("{:?}", state);
         assert_eq!(state.literal_watcher.var_watches[1].pos, vec![0]);

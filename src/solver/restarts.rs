@@ -110,16 +110,3 @@ impl Restarter {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::solver::restarts::Restarter;
-
-    #[test]
-    #[ignore]
-    fn test_luby() {
-        for i in 1..200000 {
-            println!("{}", Restarter::luby(i));
-        }
-    }
-}
